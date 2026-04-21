@@ -1,14 +1,10 @@
 'use client'
 
 import Link from 'next/link'
-import { Settings, Heart, Clock, Star, Bell, ChevronRight } from 'lucide-react'
+import { Settings, Heart, Clock, Star, Bell, ChevronRight, LogOut } from 'lucide-react'
 import { ROUTES, UTILISATEUR } from '@/constants'
-
-const STATS = [
-  { value: '47',  label: 'Visités' },
-  { value: '128', label: 'Favoris' },
-  { value: '12',  label: 'Avis' },
-]
+import { useAuth } from '@/context/AuthContext'
+import { signOutAction } from '@/lib/auth/actions'
 
 const MENU_ROWS = [
   {
@@ -53,7 +49,34 @@ const MENU_ROWS = [
   },
 ]
 
+function getInitiales(fullName: string | null | undefined) {
+  if (!fullName) return '?'
+  return fullName
+    .split(' ')
+    .slice(0, 2)
+    .map((w) => w[0])
+    .join('')
+    .toUpperCase()
+}
+
+function getMembreDateLabel(createdAt: string | undefined) {
+  if (!createdAt) return ''
+  return `Membre depuis ${new Date(createdAt).toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' })}`
+}
+
+const STATS = [
+  { value: '47', label: 'Visités' },
+  { value: '128', label: 'Favoris' },
+  { value: '12', label: 'Avis' },
+]
+
 export default function ProfilePage() {
+  const { profile, user } = useAuth()
+
+  const fullName = profile?.full_name ?? user?.user_metadata?.full_name ?? 'Utilisateur'
+  const initiales = getInitiales(fullName)
+  const membreDepuis = getMembreDateLabel(user?.created_at)
+
   return (
     <div className="flex flex-col pb-20">
 
@@ -63,17 +86,20 @@ export default function ProfilePage() {
         style={{ background: 'radial-gradient(ellipse at 30% 60%, #5C0A0A 0%, #1C0907 60%, #110503 100%)' }}
       >
         {/* Settings */}
-        <Link href={ROUTES.PROFIL_PARAMETRES} className="absolute top-4 right-4 w-9 h-9 rounded-full bg-white/10 flex items-center justify-center">
+        <Link
+          href={ROUTES.PROFIL_PARAMETRES}
+          className="absolute top-4 right-4 w-9 h-9 rounded-full bg-white/10 flex items-center justify-center"
+        >
           <Settings size={16} className="text-white" strokeWidth={1.5} />
         </Link>
 
         {/* Avatar */}
         <div className="w-20 h-20 rounded-full bg-white flex items-center justify-center mb-3">
-          <span className="text-michelin-black font-bold text-xl tracking-wide">{UTILISATEUR.INITIALES}</span>
+          <span className="text-michelin-black font-bold text-xl tracking-wide">{initiales}</span>
         </div>
 
-        <h1 className="text-white font-bold text-xl">{UTILISATEUR.NOM}</h1>
-        <p className="text-white/50 text-sm mt-0.5">{UTILISATEUR.MEMBRE_DEPUIS}</p>
+        <h1 className="text-white font-bold text-xl">{fullName}</h1>
+        {membreDepuis && <p className="text-white/50 text-sm mt-0.5">{membreDepuis}</p>}
 
         {/* Badge */}
         <div className="mt-4 flex items-center gap-1.5 bg-white/10 border border-white/20 rounded-full px-4 py-2">
@@ -112,6 +138,19 @@ export default function ProfilePage() {
             <ChevronRight size={16} className="text-michelin-gray shrink-0" />
           </Link>
         ))}
+
+        {/* Déconnexion */}
+        <form action={signOutAction}>
+          <button
+            type="submit"
+            className="w-full flex items-center gap-3 bg-white rounded-xl px-4 py-4 hover:opacity-80 transition-opacity text-left"
+          >
+            <div className="w-9 h-9 rounded-full bg-michelin-light-gray flex items-center justify-center shrink-0">
+              <LogOut size={16} className="text-michelin-black" strokeWidth={1.5} />
+            </div>
+            <p className="text-michelin-black text-sm font-medium">Se déconnecter</p>
+          </button>
+        </form>
       </div>
 
     </div>

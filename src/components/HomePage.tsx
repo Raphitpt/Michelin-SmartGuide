@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { Star, ArrowRight } from 'lucide-react'
 import AppHeader from '@/components/AppHeader'
 import { FILTRE_ACCUEIL, FiltreAccueil, ROUTES, UTILISATEUR } from '@/constants'
+import { useAuth } from '@/context/AuthContext'
 
 const FILTERS = Object.values(FILTRE_ACCUEIL)
 
@@ -32,6 +33,10 @@ function CircularProgress({ value }: Readonly<{ value: number }>) {
 
 export default function HomePage({ restaurantList }: Readonly<{ restaurantList: React.ReactNode }>) {
   const [activeFilter, setActiveFilter] = useState<FiltreAccueil>(FILTRE_ACCUEIL.A_PROXIMITE)
+  const { user, profile } = useAuth()
+
+  const fullName = profile?.full_name ?? user?.user_metadata?.full_name ?? null
+  const prenom = fullName?.split(' ')[0] ?? null
 
   return (
     <div className="flex flex-col pb-20">
@@ -39,7 +44,7 @@ export default function HomePage({ restaurantList }: Readonly<{ restaurantList: 
 
       {/* Greeting */}
       <section className="px-4 pt-5 pb-4">
-        <p className="text-michelin-gray text-sm">Bonsoir, Raphaël</p>
+        <p className="text-michelin-gray text-sm">{prenom ? `Bonjour, ${prenom}` : 'Bonjour'}</p>
         <h1 className="text-michelin-black font-bold text-2xl leading-tight mt-0.5">
           Où dîne-t-on ce soir&nbsp;?
         </h1>

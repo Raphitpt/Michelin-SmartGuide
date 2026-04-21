@@ -1,15 +1,77 @@
 'use client'
 
 import Link from 'next/link'
-import { useRouter } from 'next/navigation'
-import { ChevronDown, Star, Upload } from 'lucide-react'
+import { useActionState, useRef, useState } from 'react'
+import { Upload, CheckCircle } from 'lucide-react'
+import { submitClaimAction } from '@/lib/auth/actions'
+import type { ClaimState } from '@/lib/auth/schemas'
+
+function FileField({
+  name,
+  label,
+  error,
+}: {
+  name: string
+  label: string
+  error?: string[]
+}) {
+  const [fileName, setFileName] = useState<string | null>(null)
+  const inputRef = useRef<HTMLInputElement>(null)
+
+  return (
+    <div className="flex flex-col gap-2">
+      <label htmlFor={name} className="text-white font-semibold text-base">{label}</label>
+      <label
+        htmlFor={name}
+        className="w-full bg-[#D9D9D9] rounded px-4 py-4 flex items-center gap-3 cursor-pointer hover:bg-[#CECECE] transition-colors"
+      >
+        {fileName ? (
+          <CheckCircle size={18} className="text-green-600 shrink-0" strokeWidth={1.5} />
+        ) : (
+          <Upload size={18} className="text-michelin-black/50 shrink-0" strokeWidth={1.5} />
+        )}
+        <span className="text-sm text-michelin-black/70 truncate">
+          {fileName ?? 'Choisir un fichier…'}
+        </span>
+        <input
+          ref={inputRef}
+          id={name}
+          name={name}
+          type="file"
+          accept=".pdf,image/*"
+          className="hidden"
+          onChange={(e) => setFileName(e.target.files?.[0]?.name ?? null)}
+        />
+      </label>
+      {error && <p className="text-red-400 text-xs">{error[0]}</p>}
+    </div>
+  )
+}
 
 export default function RestaurantVerifyPage() {
-  const router = useRouter()
+  const [state, action, pending] = useActionState<ClaimState, FormData>(submitClaimAction, undefined)
 
-  function handleSubmit(e: React.FormEvent) {
-    e.preventDefault()
-    router.push('/')
+  if (state?.success) {
+    return (
+      <div
+        className="min-h-screen flex flex-col items-center justify-center px-6 text-center gap-6"
+        style={{ background: 'linear-gradient(to bottom, #110503, #1C0907)' }}
+      >
+        <CheckCircle size={56} className="text-green-400" strokeWidth={1.5} />
+        <div>
+          <h2 className="text-white font-bold text-xl mb-2">Demande envoyée</h2>
+          <p className="text-white/60 text-sm leading-relaxed">
+            Votre demande de revendication est en cours d&apos;examen. Vous recevrez une réponse par email.
+          </p>
+        </div>
+        <Link
+          href="/"
+          className="w-full bg-michelin-red text-white text-sm font-medium text-center py-4 rounded hover:opacity-90 transition-opacity"
+        >
+          Accéder à l&apos;application
+        </Link>
+      </div>
+    )
   }
 
   return (
@@ -24,61 +86,56 @@ export default function RestaurantVerifyPage() {
       </header>
 
       <div className="flex-1 flex flex-col justify-center px-6 py-10">
+        <form action={action} className="flex flex-col gap-5">
 
-        {/* Restaurant selector */}
-        <div className="flex items-center justify-between bg-white/5 rounded-xl px-4 py-3 mb-8">
-          <div className="flex items-center gap-3">
-            <Star size={18} className="text-white/40" strokeWidth={1.5} />
-            <p className="text-white text-sm leading-snug">
-              Choisissez le restaurant<br />que vous gérez
+          {state?.message && (
+            <p className="text-red-400 text-sm text-center bg-red-400/10 rounded px-4 py-3">
+              {state.message}
             </p>
-          </div>
-          <button className="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center shrink-0">
-            <ChevronDown size={16} className="text-white" />
-          </button>
-        </div>
-
-        {/* Form */}
-        <form onSubmit={handleSubmit} className="flex flex-col gap-5">
+          )}
 
           <div className="flex flex-col gap-2">
-            <label className="text-white font-semibold text-base">N°Siret</label>
+            <label htmlFor="restaurant_name" className="text-white font-semibold text-base">
+              Nom du restaurant
+            </label>
             <input
+              id="restaurant_name"
+              name="restaurant_name"
               type="text"
-              inputMode="numeric"
+              placeholder="Ex : Le Grand Véfour"
               className="w-full bg-[#D9D9D9] rounded px-4 py-4 text-sm text-michelin-black outline-none"
             />
+            {state?.errors?.restaurant_name && (
+              <p className="text-red-400 text-xs">{state.errors.restaurant_name[0]}</p>
+            )}
           </div>
 
           <div className="flex flex-col gap-2">
-            <label className="text-white font-semibold text-base">Kbis</label>
-            <label className="w-full bg-[#D9D9D9] rounded px-4 py-4 flex items-center cursor-pointer hover:bg-[#CECECE] transition-colors">
-              <Upload size={18} className="text-michelin-black/50" strokeWidth={1.5} />
-              <input type="file" accept=".pdf,image/*" className="hidden" />
-            </label>
+            <label htmlFor="siret" className="text-white font-semibold text-base">N° SIRET</label>
+            <input
+              id="siret"
+              name="siret"
+              type="text"
+              inputMode="numeric"
+              maxLength={14}
+              placeholder="14 chiffres"
+              className="w-full bg-[#D9D9D9] rounded px-4 py-4 text-sm text-michelin-black outline-none"
+            />
+            {state?.errors?.siret && (
+              <p className="text-red-400 text-xs">{state.errors.siret[0]}</p>
+            )}
           </div>
 
-          <div className="flex flex-col gap-2">
-            <label className="text-white font-semibold text-base">Facture pro (edf, etc)</label>
-            <label className="w-full bg-[#D9D9D9] rounded px-4 py-4 flex items-center cursor-pointer hover:bg-[#CECECE] transition-colors">
-              <Upload size={18} className="text-michelin-black/50" strokeWidth={1.5} />
-              <input type="file" accept=".pdf,image/*" className="hidden" />
-            </label>
-          </div>
+          <FileField name="kbis" label="Kbis" error={state?.errors?.kbis} />
+          <FileField name="facture" label="Facture pro (EDF, etc.)" error={state?.errors?.facture} />
 
           <button
             type="submit"
-            className="w-full bg-michelin-red text-white text-sm font-medium py-4 rounded mt-4 hover:opacity-90 transition-opacity"
+            disabled={pending}
+            className="w-full bg-michelin-red text-white text-sm font-medium py-4 rounded mt-4 hover:opacity-90 transition-opacity disabled:opacity-60"
           >
-            Envoyer les documents
+            {pending ? 'Envoi en cours…' : 'Envoyer les documents'}
           </button>
-
-          <p className="text-center text-white/50 text-sm">
-            Pas encore de compte&nbsp;?{' '}
-            <Link href="/login/register" className="text-white hover:opacity-80 transition-opacity">
-              Inscrivez-vous
-            </Link>
-          </p>
 
         </form>
       </div>
