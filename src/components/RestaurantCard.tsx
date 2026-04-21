@@ -1,5 +1,9 @@
+'use client'
+
 import Image from 'next/image'
 import Link from 'next/link'
+import { motion } from 'framer-motion'
+import { fadeSlideUpCard } from '@/lib/motion'
 
 interface RestaurantCardProps {
   name: string
@@ -38,31 +42,36 @@ export default function RestaurantCard({
   href = '#',
 }: RestaurantCardProps) {
   return (
-    <Link href={href} className="group block rounded-xl overflow-hidden bg-white shadow-sm hover:shadow-md transition-shadow">
-      {/* Image */}
-      <div className="relative w-full aspect-[4/3] bg-michelin-light-gray">
-        {image && (
-          <Image
-            src={image}
-            alt={name}
-            fill
-            className="object-cover"
-            sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 25vw"
-          />
-        )}
-      </div>
-
-      {/* Content */}
-      <div className="p-3">
-        {stars && <StarRating count={stars} />}
-        <p className="font-semibold text-michelin-black text-sm leading-snug">{name}</p>
-        <p className="text-michelin-gray text-xs mt-0.5">{location}</p>
-        <p className="text-michelin-gray text-xs mt-0.5">
-          {cuisine}
-          <span className="mx-1">·</span>
-          {price}
-        </p>
-      </div>
-    </Link>
+    <motion.div
+      variants={fadeSlideUpCard}
+      initial="hidden"
+      whileInView="visible"
+      viewport={{ once: true, margin: '-40px' }}
+      transition={{ duration: 0.35, ease: 'easeOut' }}
+    >
+      <Link href={href} className="group block rounded-xl overflow-hidden bg-white shadow-sm hover:shadow-md transition-shadow">
+        <div className="relative w-full aspect-[4/3] bg-michelin-light-gray">
+          {image && (
+            <Image
+              src={image}
+              alt={name}
+              fill
+              className="object-cover"
+              sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 25vw"
+            />
+          )}
+        </div>
+        <div className="p-3">
+          {stars && <StarRating count={stars} />}
+          <p className="font-semibold text-michelin-black text-sm leading-snug">{name}</p>
+          <p className="text-michelin-gray text-xs mt-0.5">{location}</p>
+          <p className="text-michelin-gray text-xs mt-0.5">
+            {cuisine}
+            <span className="mx-1">·</span>
+            {price}
+          </p>
+        </div>
+      </Link>
+    </motion.div>
   )
 }

@@ -3,6 +3,7 @@
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { Home, Search, Heart, User } from 'lucide-react'
+import { motion } from 'framer-motion'
 import { NAV_LABELS, ROUTES } from '@/constants'
 
 const NAV_ITEMS = [
@@ -11,6 +12,8 @@ const NAV_ITEMS = [
   { label: NAV_LABELS.FAVORIS,   href: ROUTES.FAVORIS,   icon: Heart },
   { label: NAV_LABELS.PROFIL,    href: ROUTES.PROFIL,    icon: User },
 ]
+
+const springTransition = { type: 'spring', stiffness: 300, damping: 30 } as const
 
 export default function BottomNav() {
   const pathname = usePathname()
@@ -31,7 +34,13 @@ export default function BottomNav() {
             <span className={`text-[10px] ${active ? 'font-semibold' : 'font-normal'}`}>
               {label}
             </span>
-            {active && <div className="w-5 h-0.5 bg-michelin-black rounded-full" />}
+            {active && (
+              <motion.div
+                layoutId="nav-indicator"
+                className="w-5 h-0.5 bg-michelin-black rounded-full"
+                transition={springTransition}
+              />
+            )}
           </Link>
         )
       })}
