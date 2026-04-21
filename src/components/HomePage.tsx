@@ -1,37 +1,12 @@
 'use client'
 
-import { useState } from 'react'
+import React, { useState } from 'react'
 import Link from 'next/link'
-import { Star, Heart, ArrowRight } from 'lucide-react'
+import { Star, ArrowRight } from 'lucide-react'
 import AppHeader from '@/components/AppHeader'
 import { FILTRE_ACCUEIL, FiltreAccueil, ROUTES, UTILISATEUR } from '@/constants'
 
 const FILTERS = Object.values(FILTRE_ACCUEIL)
-
-const RESTAURANTS = [
-  {
-    id: 1,
-    name: 'Le Clarence',
-    location: 'Paris 8e',
-    cuisine: 'Française',
-    price: '€€€€',
-    stars: 3,
-    match: 96,
-    bg: 'bg-gradient-to-br from-[#6B3A1F] to-[#C4722A]',
-    favorited: false,
-  },
-  {
-    id: 2,
-    name: 'Kei',
-    location: 'Paris 1er',
-    cuisine: 'Fusion',
-    price: '€€€€',
-    stars: 2,
-    match: 92,
-    bg: 'bg-[#1B3A2E]',
-    favorited: true,
-  },
-]
 
 function CircularProgress({ value }: Readonly<{ value: number }>) {
   const r = 26
@@ -55,17 +30,7 @@ function CircularProgress({ value }: Readonly<{ value: number }>) {
   )
 }
 
-function StarRating({ count }: Readonly<{ count: number }>) {
-  return (
-    <div className="flex gap-0.5">
-      {Array.from({ length: count }, (_, i) => (
-        <Star key={`star-${i}`} size={10} fill="#E4002B" stroke="none" />
-      ))}
-    </div>
-  )
-}
-
-export default function HomePage() {
+export default function HomePage({ restaurantList }: Readonly<{ restaurantList: React.ReactNode }>) {
   const [activeFilter, setActiveFilter] = useState<FiltreAccueil>(FILTRE_ACCUEIL.A_PROXIMITE)
 
   return (
@@ -133,48 +98,7 @@ export default function HomePage() {
 
       {/* Restaurant cards horizontal scroll */}
       <section className="mb-5">
-        <div className="flex gap-3 overflow-x-auto px-4 pb-2 scrollbar-none">
-          {RESTAURANTS.map((r) => (
-            <Link
-              key={r.id}
-              href={`/restaurants/${r.id}`}
-              className="shrink-0 w-44 rounded-xl overflow-hidden bg-white shadow-sm hover:shadow-md transition-shadow"
-            >
-              {/* Image placeholder */}
-              <div className={`relative w-full h-40 ${r.bg}`}>
-                {/* Match badge */}
-                <span className="absolute top-2 right-2 bg-michelin-red text-white text-xs font-bold px-2 py-0.5 rounded-full">
-                  {r.match}%
-                </span>
-                {/* Favorite */}
-                <button
-                  onClick={(e) => e.preventDefault()}
-                  className="absolute top-2 left-2 w-7 h-7 rounded-full bg-white/90 flex items-center justify-center"
-                >
-                  <Heart
-                    size={14}
-                    strokeWidth={1.5}
-                    className={r.favorited ? 'fill-michelin-red stroke-michelin-red' : 'stroke-michelin-black'}
-                  />
-                </button>
-              </div>
-
-              {/* Info */}
-              <div className="p-3">
-                {r.stars > 0 && (
-                  <div className="mb-1">
-                    <StarRating count={r.stars} />
-                  </div>
-                )}
-                <p className="font-semibold text-michelin-black text-sm leading-snug">{r.name}</p>
-                <p className="text-michelin-gray text-xs mt-0.5">
-                  {r.location} · {r.cuisine}
-                </p>
-                <p className="text-michelin-black text-xs font-medium mt-0.5">{r.price}</p>
-              </div>
-            </Link>
-          ))}
-        </div>
+        {restaurantList}
       </section>
 
       {/* Michelin selection banner */}
