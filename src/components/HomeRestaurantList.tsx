@@ -70,9 +70,12 @@ interface HomeRestaurantListProps {
 }
 
 export default function HomeRestaurantList({ activeFilter, onFilterFallback }: HomeRestaurantListProps) {
+  const [mounted, setMounted] = useState(false)
   const [restaurants, setRestaurants] = useState<Restaurant[]>([])
   const [fetchError, setFetchError] = useState(false)
   const { coords, status } = useGeolocation()
+
+  useEffect(() => { setMounted(true) }, [])
 
   const isProximity = activeFilter === FILTRE_ACCUEIL.A_PROXIMITE
 
@@ -95,6 +98,8 @@ export default function HomeRestaurantList({ activeFilter, onFilterFallback }: H
       onFilterFallback()
     }
   }, [isProximity, status, onFilterFallback])
+
+  if (!mounted) return null
 
   if (isProximity && (status === 'idle' || status === 'loading') && restaurants.length === 0) {
     return (
