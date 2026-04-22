@@ -182,24 +182,25 @@ export default function ProfilePage() {
           ),
         )}
 
-        {/* Déconnexion */}
-        <form action={signOutAction}>
-          <button
-            type="submit"
-            className="w-full flex items-center gap-3 bg-white rounded-xl px-4 py-4 hover:opacity-80 transition-opacity text-left"
-          >
-            <div className="w-9 h-9 rounded-full bg-michelin-light-gray flex items-center justify-center shrink-0">
-              <LogOut
-                size={16}
-                className="text-michelin-black"
-                strokeWidth={1.5}
-              />
-            </div>
-            <p className="text-michelin-black text-sm font-medium">
-              Se déconnecter
-            </p>
-          </button>
-        </form>
+        {user && (
+          <form action={signOutAction}>
+            <button
+              type="submit"
+              className="w-full flex items-center gap-3 bg-white rounded-xl px-4 py-4 hover:opacity-80 transition-opacity text-left"
+            >
+              <div className="w-9 h-9 rounded-full bg-michelin-light-gray flex items-center justify-center shrink-0">
+                <LogOut
+                  size={16}
+                  className="text-michelin-black"
+                  strokeWidth={1.5}
+                />
+              </div>
+              <p className="text-michelin-black text-sm font-medium">
+                Se déconnecter
+              </p>
+            </button>
+          </form>
+        )}
       </div>
     </div>
   );

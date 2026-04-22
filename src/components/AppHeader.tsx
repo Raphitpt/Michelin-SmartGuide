@@ -20,7 +20,8 @@ export default function AppHeader() {
 
   const fullName = profile?.full_name ?? user?.user_metadata?.full_name ?? null
   const initiales = getInitiales(fullName)
-  const profilHref = user ? ROUTES.PROFIL : ROUTES.LOGIN
+  const isConnected = !!user
+  const profilHref = isConnected ? ROUTES.PROFIL : ROUTES.LOGIN
 
   return (
     <header className="flex items-center justify-between px-4 py-3 bg-white">

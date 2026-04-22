@@ -52,13 +52,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         fetchProfile(s.user.id)
       } else {
         setProfile(null)
+        setRole(null)
       }
       setLoading(false)
     })
 
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, s) => {
+    } = supabase.auth.onAuthStateChange((event, s) => {
+      if (event === 'INITIAL_SESSION') return
       applySession(s)
       if (s?.user) {
         fetchProfile(s.user.id)
