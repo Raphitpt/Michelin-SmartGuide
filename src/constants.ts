@@ -25,6 +25,7 @@ export const ROUTES = {
 
 export const NAV_LABELS = {
   ACCUEIL:   'Accueil',
+  ARTICLES:  'Articles',
   RECHERCHE: 'Recherche',
   FAVORIS:   'Favoris',
   PROFIL:    'Profil',
