@@ -6,6 +6,7 @@ import { Heart, MapPin } from 'lucide-react'
 import { FILTRE_ACCUEIL, FiltreAccueil } from '@/constants'
 import { useGeolocation } from '@/hooks/useGeolocation'
 import { useAuth } from '@/context/AuthContext'
+import { useRestaurantActions } from '@/hooks/useRestaurantActions'
 import MichelinStar from '@/components/MichelinStar'
 
 interface RestaurantCard {
@@ -37,7 +38,9 @@ function StarRating({ count }: Readonly<{ count: number }>) {
   )
 }
 
-function Card({ restaurant }: Readonly<{ restaurant: RestaurantCard }>) {
+function Card({ restaurant, userId }: Readonly<{ restaurant: RestaurantCard; userId: string | null | undefined }>) {
+  const { liked, toggleLike } = useRestaurantActions(userId, restaurant.id)
+
   return (
     <Link
       href={`/restaurants/${restaurant.id}`}
@@ -48,9 +51,18 @@ function Card({ restaurant }: Readonly<{ restaurant: RestaurantCard }>) {
           // eslint-disable-next-line @next/next/no-img-element
           <img src={restaurant.main_image} alt={restaurant.name} className="w-full h-full object-cover" />
         )}
-        <div className="absolute top-2 left-2 w-7 h-7 rounded-full bg-white/90 flex items-center justify-center">
-          <Heart size={14} strokeWidth={1.5} className="stroke-michelin-black" />
-        </div>
+        <button
+          onClick={(e) => { e.preventDefault(); toggleLike() }}
+          className="absolute top-2 left-2 w-7 h-7 rounded-full bg-white/90 flex items-center justify-center"
+          aria-label={liked ? 'Retirer des favoris' : 'Ajouter aux favoris'}
+        >
+          <Heart
+            size={14}
+            strokeWidth={1.5}
+            className={liked ? 'text-michelin-red' : 'text-michelin-black'}
+            fill={liked ? '#E4002B' : 'none'}
+          />
+        </button>
       </div>
       <div className="p-3">
         {restaurant.stars > 0 && (
@@ -201,7 +213,7 @@ export default function HomeRestaurantList({ activeFilter, onFilterFallback }: P
   return (
     <div className="flex gap-3 overflow-x-auto px-4 pb-2 scrollbar-none">
       {restaurants.map((r) => (
-        <Card key={r.id} restaurant={r} />
+        <Card key={r.id} restaurant={r} userId={user?.id} />
       ))}
     </div>
   )
