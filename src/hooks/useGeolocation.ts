@@ -39,7 +39,6 @@ export function useGeolocation() {
       return
     }
 
-    // Load cached position immediately so UI isn't blocked
     const cached = readCached()
     if (cached) {
       setCoords(cached)
@@ -48,15 +47,8 @@ export function useGeolocation() {
       setStatus('loading')
     }
 
-    // Always request a fresh position
-    const timeoutId = setTimeout(() => {
-      // If still loading after 10s, treat as denied
-      setStatus((prev) => (prev === 'loading' ? 'denied' : prev))
-    }, 10_000)
-
     navigator.geolocation.getCurrentPosition(
       (pos) => {
-        clearTimeout(timeoutId)
         const fresh: GeolocationCoords = {
           lat: pos.coords.latitude,
           lng: pos.coords.longitude,
@@ -66,17 +58,14 @@ export function useGeolocation() {
         setStatus('success')
       },
       (err) => {
-        clearTimeout(timeoutId)
-        if (err.code === GeolocationPositionError.PERMISSION_DENIED) {
+        if (err.code === 1) {
           setStatus('denied')
         } else {
           setStatus('unavailable')
         }
       },
-      { timeout: 10_000, maximumAge: 300_000 }
+      { timeout: 10_000, maximumAge: 0 }
     )
-
-    return () => clearTimeout(timeoutId)
   }, [])
 
   return { coords, status }
