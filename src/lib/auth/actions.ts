@@ -85,11 +85,16 @@ export async function signUpAction(
     confirm_password: formData.get("confirm_password") as string,
   };
 
-  const values = { nom: raw.nom, prenom: raw.prenom, date_naissance: raw.date_naissance, email: raw.email }
+  const values = {
+    nom: raw.nom,
+    prenom: raw.prenom,
+    date_naissance: raw.date_naissance,
+    email: raw.email,
+  };
 
   const validated = signUpSchema.safeParse(raw);
   if (!validated.success) {
-    return { errors: validated.error.flatten().fieldErrors, values }
+    return { errors: validated.error.flatten().fieldErrors, values };
   }
 
   const { nom, prenom, date_naissance, email, password } = validated.data;
@@ -110,26 +115,29 @@ export async function signUpAction(
 
   if (error) {
     if (error.code === "user_already_exists") {
-      return { errors: { email: ["Un compte existe déjà avec cet email."] }, values }
+      return {
+        errors: { email: ["Un compte existe déjà avec cet email."] },
+        values,
+      };
     }
     if (error.code === "over_email_send_rate_limit") {
-      return { message: "Trop de tentatives. Attendez quelques minutes avant de réessayer.", values }
+      return {
+        message:
+          "Trop de tentatives. Attendez quelques minutes avant de réessayer.",
+        values,
+      };
     }
-    console.error("[signUpAction] Supabase error:", { code: error.code, message: error.message, status: error.status });
-    return { message: "Une erreur est survenue. Veuillez réessayer.", values };
-  }
-
-  if (data.user) {
-    await supabase.from("profiles").upsert({
-      id: data.user.id,
-      full_name: `${prenom} ${nom}`,
-      role: "visitor",
+    console.error("[signUpAction] Supabase error:", {
+      code: error.code,
+      message: error.message,
+      status: error.status,
     });
+    return { message: "Une erreur est survenue. Veuillez réessayer.", values };
   }
 
   // Si confirmation email requise, l'identité n'est pas encore active
   if (data.user && data.user.identities?.length === 0) {
-    return { message: "Un compte existe déjà avec cet email.", values }
+    return { message: "Un compte existe déjà avec cet email.", values };
   }
 
   redirect("/");
