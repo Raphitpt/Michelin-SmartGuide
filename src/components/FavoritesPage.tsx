@@ -38,20 +38,19 @@ export default function FavoritesPage() {
     async function load() {
       setLoading(true)
 
-      const [{ data: swipes }, { data: reservations }] = await Promise.all([
+      const [{ data: swipes }, { data: visits }] = await Promise.all([
         supabase
           .from('user_swipes')
           .select('id, restaurant_id, restaurants(id, name, city, main_image, michelin_awards(stars))')
           .eq('user_id', user!.id)
           .eq('liked', true),
         supabase
-          .from('reservations')
+          .from('user_visited_restaurants')
           .select('restaurant_id')
-          .eq('user_id', user!.id)
-          .eq('status', 'confirmed'),
+          .eq('user_id', user!.id),
       ])
 
-      const visitedIds = new Set((reservations ?? []).map((r) => r.restaurant_id))
+      const visitedIds = new Set((visits ?? []).map((r) => r.restaurant_id))
 
       const items: FavoriteRestaurant[] = (swipes ?? []).map((s) => {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any

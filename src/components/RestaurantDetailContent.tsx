@@ -1,12 +1,14 @@
 'use client'
 
 import { motion } from 'framer-motion'
-import { Heart, Share2, ChevronRight, Phone, Clock, Shirt } from 'lucide-react'
+import { Heart, Share2, ChevronRight, Phone, Clock, Shirt, CheckCircle } from 'lucide-react'
 import MichelinStar from '@/components/MichelinStar'
 import BackButton from '@/components/BackButton'
 import ImageSlider from '@/components/ImageSlider'
 import { staggerContainerDetail, fadeSlideUp } from '@/lib/motion'
 import { Database } from '@/types/supabase'
+import { useAuth } from '@/context/AuthContext'
+import { useRestaurantActions } from '@/hooks/useRestaurantActions'
 
 type RestaurantImage = Database['public']['Tables']['restaurant_images']['Row']
 type MichelinAward   = Database['public']['Tables']['michelin_awards']['Row']
@@ -26,14 +28,26 @@ const INFO_ROWS = [
 const itemTransition = { duration: 0.4, ease: 'easeOut' as const }
 
 export default function RestaurantDetailContent({ restaurant }: { restaurant: Restaurant }) {
+  const { user } = useAuth()
+  const { liked, visited, toggleLike, toggleVisited } = useRestaurantActions(user?.id, restaurant.id)
+
   return (
     <div className="flex flex-col pb-28">
       <div className="relative w-full h-64 shrink-0">
         <ImageSlider images={restaurant.restaurant_images.sort((a, b) => a.position - b.position)} />
         <BackButton />
         <div className="absolute top-4 right-4 flex gap-2">
-          <button className="w-9 h-9 rounded-full bg-white flex items-center justify-center shadow">
-            <Heart size={16} className="text-michelin-black" strokeWidth={1.5} />
+          <button
+            onClick={toggleLike}
+            className="w-9 h-9 rounded-full bg-white flex items-center justify-center shadow"
+            aria-label={liked ? 'Retirer des favoris' : 'Ajouter aux favoris'}
+          >
+            <Heart
+              size={16}
+              strokeWidth={1.5}
+              className={liked ? 'text-michelin-red' : 'text-michelin-black'}
+              fill={liked ? '#E4002B' : 'none'}
+            />
           </button>
           <button className="w-9 h-9 rounded-full bg-white/80 flex items-center justify-center shadow">
             <Share2 size={16} className="text-michelin-black" strokeWidth={1.5} />
@@ -94,6 +108,21 @@ export default function RestaurantDetailContent({ restaurant }: { restaurant: Re
               <ChevronRight size={16} className="text-michelin-gray shrink-0" />
             </button>
           ))}
+        </motion.div>
+
+        {/* J'ai visité */}
+        <motion.div variants={fadeSlideUp} transition={itemTransition}>
+          <button
+            onClick={toggleVisited}
+            className={`w-full flex items-center justify-center gap-2 py-3 rounded-xl border text-sm font-medium transition-colors ${
+              visited
+                ? 'bg-green-50 border-green-200 text-green-700'
+                : 'bg-white border-michelin-black/20 text-michelin-black hover:border-michelin-black/50'
+            }`}
+          >
+            <CheckCircle size={16} strokeWidth={1.5} />
+            {visited ? 'Visité !' : "J'ai visité ce restaurant"}
+          </button>
         </motion.div>
       </motion.div>
 
