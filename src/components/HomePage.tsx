@@ -4,6 +4,7 @@ import React, { useState } from 'react'
 import Link from 'next/link'
 import { Star, ArrowRight } from 'lucide-react'
 import AppHeader from '@/components/AppHeader'
+import HomeRestaurantList from '@/components/HomeRestaurantList'
 import { FILTRE_ACCUEIL, FiltreAccueil, ROUTES, UTILISATEUR } from '@/constants'
 import { useAuth } from '@/context/AuthContext'
 
@@ -31,9 +32,13 @@ function CircularProgress({ value }: Readonly<{ value: number }>) {
   )
 }
 
-export default function HomePage({ restaurantList }: Readonly<{ restaurantList: React.ReactNode }>) {
+export default function HomePage() {
   const [activeFilter, setActiveFilter] = useState<FiltreAccueil>(FILTRE_ACCUEIL.A_PROXIMITE)
   const { user, profile } = useAuth()
+
+  const handleFilterFallback = () => {
+    setActiveFilter(FILTRE_ACCUEIL.ETOILES)
+  }
 
   const fullName = profile?.full_name ?? user?.user_metadata?.full_name ?? null
   const prenom = fullName?.split(' ')[0] ?? null
@@ -103,7 +108,7 @@ export default function HomePage({ restaurantList }: Readonly<{ restaurantList: 
 
       {/* Restaurant cards horizontal scroll */}
       <section className="mb-5">
-        {restaurantList}
+        <HomeRestaurantList activeFilter={activeFilter} onFilterFallback={handleFilterFallback} />
       </section>
 
       {/* Michelin selection banner */}
