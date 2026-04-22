@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useState, useEffect } from "react";
 import {
   Settings,
   Heart,
@@ -10,9 +11,15 @@ import {
   ChevronRight,
   LogOut,
 } from "lucide-react";
-import { ROUTES, UTILISATEUR } from "@/constants";
+import { ROUTES } from "@/constants";
 import { useAuth } from "@/context/AuthContext";
 import { signOutAction } from "@/lib/auth/actions";
+import { createClient } from "@/utils/supabase/client";
+
+type TasteProfile = {
+  archetypeName: string
+  archetypeScore: number
+}
 
 const MENU_ROWS = [
   {
@@ -36,7 +43,7 @@ const MENU_ROWS = [
     iconBg: "bg-michelin-red",
     iconColor: "text-white",
     label: "Mon profil gastronomique",
-    sub: `${UTILISATEUR.TYPE_PROFIL} · ${UTILISATEUR.MATCH}%`,
+    sub: null, // dynamique
     href: ROUTES.PROFIL_GASTRO,
   },
   {
@@ -87,6 +94,29 @@ const ROLE_LABELS: Record<string, string> = {
 
 export default function ProfilePage() {
   const { profile, user, role } = useAuth();
+  const [tasteProfile, setTasteProfile] = useState<TasteProfile | null>(null);
+
+  useEffect(() => {
+    if (!user) return;
+    const supabase = createClient();
+    supabase
+      .from("user_taste_profiles")
+      .select("archetype_id, archetype_score")
+      .eq("user_id", user.id)
+      .maybeSingle()
+      .then(async ({ data }) => {
+        if (!data) return;
+        const { data: arch } = await supabase
+          .from("reco_archetypes")
+          .select("nom")
+          .eq("id", data.archetype_id)
+          .maybeSingle();
+        setTasteProfile({
+          archetypeName: arch?.nom ?? data.archetype_id,
+          archetypeScore: Math.round(data.archetype_score),
+        });
+      });
+  }, [user]);
 
   const fullName =
     profile?.full_name ?? user?.user_metadata?.full_name ?? "Utilisateur";
@@ -133,12 +163,14 @@ export default function ProfilePage() {
         )}
 
         {/* Badge */}
-        <div className="mt-4 flex items-center gap-1.5 bg-white/10 border border-white/20 rounded-full px-4 py-2">
-          <Star size={11} fill="white" stroke="none" />
-          <span className="text-white text-xs font-medium">
-            {UTILISATEUR.TYPE_PROFIL}
-          </span>
-        </div>
+        {tasteProfile && (
+          <div className="mt-4 flex items-center gap-1.5 bg-white/10 border border-white/20 rounded-full px-4 py-2">
+            <Star size={11} fill="white" stroke="none" />
+            <span className="text-white text-xs font-medium">
+              {tasteProfile.archetypeName} · {tasteProfile.archetypeScore}%
+            </span>
+          </div>
+        )}
       </div>
 
       {/* Stats */}
@@ -156,30 +188,35 @@ export default function ProfilePage() {
       {/* Menu */}
       <div className="flex flex-col gap-2 px-4 pt-4">
         {MENU_ROWS.map(
-          ({ icon: Icon, iconBg, iconColor, label, sub, href }) => (
-            <Link
-              key={label}
-              href={href}
-              className="flex items-center justify-between bg-white rounded-xl px-4 py-4 hover:opacity-80 transition-opacity"
-            >
-              <div className="flex items-center gap-3">
-                <div
-                  className={`w-9 h-9 rounded-full ${iconBg} flex items-center justify-center shrink-0`}
-                >
-                  <Icon size={16} className={iconColor} strokeWidth={1.5} />
+          ({ icon: Icon, iconBg, iconColor, label, sub, href }) => {
+            const resolvedSub = sub === null && href === ROUTES.PROFIL_GASTRO
+              ? tasteProfile ? `${tasteProfile.archetypeName} · ${tasteProfile.archetypeScore}%` : 'Profil en cours…'
+              : sub;
+            return (
+              <Link
+                key={label}
+                href={href}
+                className="flex items-center justify-between bg-white rounded-xl px-4 py-4 hover:opacity-80 transition-opacity"
+              >
+                <div className="flex items-center gap-3">
+                  <div
+                    className={`w-9 h-9 rounded-full ${iconBg} flex items-center justify-center shrink-0`}
+                  >
+                    <Icon size={16} className={iconColor} strokeWidth={1.5} />
+                  </div>
+                  <div>
+                    <p className="text-michelin-black text-sm font-medium">
+                      {label}
+                    </p>
+                    {resolvedSub && (
+                      <p className="text-michelin-gray text-xs mt-0.5">{resolvedSub}</p>
+                    )}
+                  </div>
                 </div>
-                <div>
-                  <p className="text-michelin-black text-sm font-medium">
-                    {label}
-                  </p>
-                  {sub && (
-                    <p className="text-michelin-gray text-xs mt-0.5">{sub}</p>
-                  )}
-                </div>
-              </div>
-              <ChevronRight size={16} className="text-michelin-gray shrink-0" />
-            </Link>
-          ),
+                <ChevronRight size={16} className="text-michelin-gray shrink-0" />
+              </Link>
+            );
+          }
         )}
 
         {user && (

@@ -13,6 +13,8 @@ export type RestaurantForSwipe = {
   city: string | null
   main_image: string | null
   michelin_award_id: string | null
+  michelin_stars: number
+  michelin_label: string | null
   trait_codes: string[]
   traits: TraitInfo[]
   cuisine_style_label: string | null
@@ -41,7 +43,7 @@ export async function fetchRestaurantsForSwipe(): Promise<RestaurantForSwipe[]> 
   const [{ data: restaurants, error }, { data: recoTraits, error: recoTraitsError }] = await Promise.all([
     supabase
       .from('restaurants')
-      .select('id, name, city, main_image, michelin_award_id')
+      .select('id, name, city, main_image, michelin_award_id, michelin_awards(stars, label)')
       .in('id', restaurantIds)
       .eq('is_published', true)
       .limit(15),
@@ -74,8 +76,16 @@ export async function fetchRestaurantsForSwipe(): Promise<RestaurantForSwipe[]> 
         return t ? { code, label: t.label, dimension_id: t.dimension_id } : null
       })
       .filter((t): t is TraitInfo => t !== null)
+    const rawAward = (r as unknown as { michelin_awards: { stars: number; label: string } | { stars: number; label: string }[] | null }).michelin_awards
+    const award = Array.isArray(rawAward) ? rawAward[0] ?? null : rawAward
     return {
-      ...r,
+      id: r.id,
+      name: r.name,
+      city: r.city,
+      main_image: r.main_image,
+      michelin_award_id: r.michelin_award_id,
+      michelin_stars: award?.stars ?? 0,
+      michelin_label: award?.stars === 0 ? (award?.label ?? null) : null,
       trait_codes: codes,
       traits,
       cuisine_style_label: pickCuisineStyleLabel(codes),

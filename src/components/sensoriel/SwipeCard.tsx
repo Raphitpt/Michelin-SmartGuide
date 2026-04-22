@@ -3,6 +3,7 @@
 
 import { motion, useMotionValue, useTransform } from 'framer-motion'
 import type { RestaurantForSwipe } from '@/lib/sensoriel/queries'
+import MichelinStar from '@/components/MichelinStar'
 
 const SWIPE_THRESHOLD = 80
 
@@ -39,7 +40,7 @@ export default function SwipeCard({ restaurant, onSwipe, onPass, isTop, stackOff
     }
   }
 
-  const michelinStars = restaurant.michelin_award_id ? '★' : null
+  const starCount = restaurant.michelin_stars ?? 0
 
   if (!isTop) {
     return (
@@ -98,9 +99,15 @@ export default function SwipeCard({ restaurant, onSwipe, onPass, isTop, stackOff
         </motion.div>
 
         <div className="p-4 flex flex-col gap-2">
-          {michelinStars && (
-            <p className="text-[#ba0b2f] font-semibold text-[13px]">{michelinStars}</p>
-          )}
+          {starCount > 0 ? (
+            <div className="flex gap-0.5">
+              {Array.from({ length: starCount }, (_, i) => (
+                <MichelinStar key={i} size={12} />
+              ))}
+            </div>
+          ) : restaurant.michelin_label ? (
+            <p className="text-[#ba0b2f] font-medium text-[11px]">{restaurant.michelin_label}</p>
+          ) : null}
           <p className="text-[#191919] font-semibold text-[18px]">{restaurant.name}</p>
           <p className="text-[#757575] font-normal text-[14px]">
             {restaurant.city}

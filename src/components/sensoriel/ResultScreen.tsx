@@ -45,6 +45,8 @@ export default function ResultScreen({
   const router = useRouter()
   const [activeTooltip, setActiveTooltip] = useState<string | null>(null)
 
+  const isBlankProfile = scorePct === 0 && dimensionScores.length === 0
+
   return (
     <div className="min-h-screen bg-[#f5f5f0] flex flex-col">
       <div className="relative bg-[#191919] pb-8">
@@ -70,38 +72,51 @@ export default function ResultScreen({
             VOTRE PROFIL GASTRONOMIQUE
           </motion.p>
 
-          <div className="flex items-start justify-between gap-4">
-            <motion.h1
-              variants={fadeSlideUp}
-              className="text-white font-bold text-[34px] leading-[1.1] flex-1"
-            >
-              {archetypeName}
-            </motion.h1>
-            <motion.div
-              variants={fadeSlideUp}
-              className="bg-[#ba0b2f] rounded-[18px] px-3 py-1 flex items-center justify-center flex-shrink-0"
-            >
-              <span className="text-white font-bold text-[16px]">{scorePct}%</span>
+          {isBlankProfile ? (
+            <motion.div variants={fadeSlideUp}>
+              <h1 className="text-white font-bold text-[28px] leading-[1.2]">
+                Difficile à cerner…
+              </h1>
+              <p className="text-white/75 text-[14px] leading-[1.5] mt-3">
+                Vous avez rejeté tous les restaurants — votre palais reste un mystère. Explorez l&apos;application et affinez votre profil en ajoutant des favoris.
+              </p>
             </motion.div>
-          </div>
+          ) : (
+            <>
+              <div className="flex items-start justify-between gap-4">
+                <motion.h1
+                  variants={fadeSlideUp}
+                  className="text-white font-bold text-[34px] leading-[1.1] flex-1"
+                >
+                  {archetypeName}
+                </motion.h1>
+                <motion.div
+                  variants={fadeSlideUp}
+                  className="bg-[#ba0b2f] rounded-[18px] px-3 py-1 flex items-center justify-center flex-shrink-0"
+                >
+                  <span className="text-white font-bold text-[16px]">{scorePct}%</span>
+                </motion.div>
+              </div>
 
-          <motion.p
-            variants={fadeSlideUp}
-            className="text-white/75 text-[14px] leading-[1.5] mt-3 mb-4"
-          >
-            {archetypeDescription}
-          </motion.p>
-
-          <motion.div variants={fadeSlideUp} className="flex gap-2 flex-wrap">
-            {topTags.map(tag => (
-              <span
-                key={tag}
-                className="bg-[#ba0b2f] text-white text-[13px] font-medium px-3 py-1.5 rounded-full"
+              <motion.p
+                variants={fadeSlideUp}
+                className="text-white/75 text-[14px] leading-[1.5] mt-3 mb-4"
               >
-                {tag}
-              </span>
-            ))}
-          </motion.div>
+                {archetypeDescription}
+              </motion.p>
+
+              <motion.div variants={fadeSlideUp} className="flex gap-2 flex-wrap">
+                {topTags.map(tag => (
+                  <span
+                    key={tag}
+                    className="bg-[#ba0b2f] text-white text-[13px] font-medium px-3 py-1.5 rounded-full"
+                  >
+                    {tag}
+                  </span>
+                ))}
+              </motion.div>
+            </>
+          )}
         </motion.div>
       </div>
 
@@ -111,7 +126,7 @@ export default function ResultScreen({
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.4 }}
       >
-        {dimensionScores.length > 0 && (
+        {!isBlankProfile && dimensionScores.length > 0 && (
           <div className="bg-white rounded-[12px] p-5 flex flex-col gap-4">
             <p className="text-[#191919] font-semibold text-[14px] tracking-[0.5px]">POURQUOI CE PROFIL</p>
             {dimensionScores.map((dim, i) => (
