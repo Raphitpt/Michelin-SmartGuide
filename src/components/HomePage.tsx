@@ -2,7 +2,7 @@
 
 import React, { useCallback, useEffect, useState } from 'react'
 import Link from 'next/link'
-import { Star, ArrowRight } from 'lucide-react'
+import { ArrowRight } from 'lucide-react'
 import AppHeader from '@/components/AppHeader'
 import HomeRestaurantList from '@/components/HomeRestaurantList'
 import { FILTRE_ACCUEIL, FiltreAccueil, ROUTES } from '@/constants'
@@ -127,28 +127,11 @@ export default function HomePage() {
             Tout voir
           </Link>
         </div>
-        <p className="text-michelin-gray text-xs mt-0.5">12 restaurants qui vous correspondent</p>
       </section>
 
       {/* Restaurant cards horizontal scroll */}
       <section className="mb-5">
         <HomeRestaurantList activeFilter={activeFilter} onFilterFallback={handleFilterFallback} />
-      </section>
-
-      {/* Michelin selection banner */}
-      <section className="mx-4">
-        <Link
-          href={ROUTES.RESTAURANTS}
-          className="flex items-center justify-between rounded-xl px-4 py-4 bg-michelin-black text-white hover:opacity-90 transition-opacity"
-        >
-          <div className="flex items-center gap-2">
-            <Star size={14} fill="white" stroke="none" />
-            <span className="text-sm font-medium">Sélection Michelin</span>
-            <span className="text-white/50 text-sm">·</span>
-            <span className="text-sm text-white/70">8 étoilés autour de vous</span>
-          </div>
-          <ArrowRight size={16} className="shrink-0" />
-        </Link>
       </section>
 
     </div>
