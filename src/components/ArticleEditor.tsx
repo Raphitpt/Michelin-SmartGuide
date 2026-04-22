@@ -1,7 +1,7 @@
 "use client";
 
 import { useActionState, useState } from "react";
-import { ChevronLeft, Save } from "lucide-react";
+import { ChevronLeft, Save, FileText, Globe } from "lucide-react";
 import Link from "next/link";
 import CustomEditor from "@/components/Editor";
 import { ROUTES } from "@/constants";
@@ -19,6 +19,9 @@ interface ArticleEditorProps {
 
 export default function ArticleEditor({ action, article }: ArticleEditorProps) {
   const [content, setContent] = useState(article?.content_blocks?.html ?? "");
+  const [status, setStatus] = useState<"draft" | "published">(
+    article?.status === "published" ? "published" : "draft"
+  );
   const [state, formAction, pending] = useActionState(action, {});
 
   return (
@@ -62,14 +65,34 @@ export default function ArticleEditor({ action, article }: ArticleEditorProps) {
           <label className="text-xs font-medium text-michelin-gray uppercase tracking-wider">
             Statut
           </label>
-          <select
-            name="status"
-            defaultValue={article?.status ?? "draft"}
-            className="w-full bg-white rounded-xl px-4 py-3 text-michelin-black text-sm outline-none border border-michelin-light-gray focus:border-michelin-red transition-colors"
-          >
-            <option value="draft">Brouillon</option>
-            <option value="published">Publié</option>
-          </select>
+          <input type="hidden" name="status" value={status} />
+          <div className="flex rounded-xl overflow-hidden border border-michelin-light-gray bg-white">
+            <button
+              type="button"
+              onClick={() => setStatus("draft")}
+              className={`flex-1 flex items-center justify-center gap-2 py-3 text-sm font-medium transition-colors ${
+                status === "draft"
+                  ? "bg-michelin-black text-white"
+                  : "text-michelin-gray hover:text-michelin-black"
+              }`}
+            >
+              <FileText size={15} />
+              Brouillon
+            </button>
+            <div className="w-px bg-michelin-light-gray" />
+            <button
+              type="button"
+              onClick={() => setStatus("published")}
+              className={`flex-1 flex items-center justify-center gap-2 py-3 text-sm font-medium transition-colors ${
+                status === "published"
+                  ? "bg-michelin-red text-white"
+                  : "text-michelin-gray hover:text-michelin-black"
+              }`}
+            >
+              <Globe size={15} />
+              Publié
+            </button>
+          </div>
         </div>
 
         {/* Contenu */}
