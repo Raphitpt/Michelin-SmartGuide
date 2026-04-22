@@ -17,10 +17,10 @@ export default function CustomEditor({
   return (
     <Editor
       tinymceScriptSrc="/tinymce/js/tinymce/tinymce.min.js"
+      licenseKey="gpl"
       onInit={(_evt, editor) => (editorRef.current = editor)}
       value={initialValue}
       init={{
-        license_key: "gpl",
         height: 500,
         menubar: false,
         // plugins: [

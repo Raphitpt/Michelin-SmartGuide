@@ -15,13 +15,16 @@ export async function GET(req: NextRequest) {
   const supabase = createAdminClient()
 
   // 1. Get user's archetype
-  const { data: tasteProfile } = await supabase
-    .from('user_taste_profiles')
-    .select('archetype_id')
-    .eq('user_id', userId)
-    .single()
+  let archetypeId: string | null = null
+  if (userId) {
+    const { data: tasteProfile } = await supabase
+      .from('user_taste_profiles')
+      .select('archetype_id')
+      .eq('user_id', userId)
+      .single()
 
-  const archetypeId = tasteProfile?.archetype_id ?? null
+    archetypeId = tasteProfile?.archetype_id ?? null
+  }
 
   // 2. Get archetype weights (trait_code → weight)
   let weights: Record<string, number> = {}

@@ -225,6 +225,9 @@ export async function submitClaimAction(
   if (!restaurant) {
     return { errors: { restaurant_id: ["Restaurant introuvable."] } };
   }
+  if (!restaurant.country_id) {
+    return { message: "Le pays du restaurant est manquant." };
+  }
 
   // Check no existing claim
   const { data: existingClaim } = await supabase
