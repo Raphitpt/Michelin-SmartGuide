@@ -2,10 +2,67 @@
 
 import Link from 'next/link'
 import { useState } from 'react'
-import { Mail, Eye, EyeOff } from 'lucide-react'
+import { Mail, Eye, EyeOff, Lock } from 'lucide-react'
 import { useActionState } from 'react'
 import { signInAction } from '@/lib/auth/actions'
 import type { SignInState } from '@/lib/auth/schemas'
+
+function FloatingInput({
+  id,
+  name,
+  type = 'text',
+  autoComplete,
+  label,
+  icon: Icon,
+  error,
+  defaultValue,
+  rightSlot,
+}: {
+  id: string
+  name: string
+  type?: string
+  autoComplete?: string
+  label: string
+  icon?: React.ElementType
+  error?: string
+  defaultValue?: string
+  rightSlot?: React.ReactNode
+}) {
+  const [focused, setFocused] = useState(false)
+  const [hasValue, setHasValue] = useState(!!defaultValue)
+
+  return (
+    <div className="flex flex-col gap-1.5">
+      <label htmlFor={id} className="text-white/70 text-xs font-medium tracking-wider uppercase">
+        {label}
+      </label>
+      <div className={`relative flex items-center rounded-sm transition-all duration-200 border ${focused ? 'border-michelin-red/70 bg-white/5' : 'border-white/15 bg-white/5'}`}>
+        {Icon && (
+          <Icon
+            size={15}
+            strokeWidth={1.5}
+            className={`absolute left-3.5 shrink-0 transition-colors duration-200 ${focused ? 'text-michelin-red/80' : 'text-white/30'}`}
+          />
+        )}
+        <input
+          id={id}
+          name={name}
+          type={type}
+          autoComplete={autoComplete}
+          defaultValue={defaultValue}
+          onFocus={() => setFocused(true)}
+          onBlur={(e) => { setFocused(false); setHasValue(!!e.target.value) }}
+          className={`w-full bg-transparent py-4 text-sm text-white placeholder-white/25 outline-none ${Icon ? 'pl-10' : 'pl-4'} ${rightSlot ? 'pr-11' : 'pr-4'}`}
+          placeholder=" "
+        />
+        {rightSlot && (
+          <div className="absolute right-3">{rightSlot}</div>
+        )}
+      </div>
+      {error && <p className="text-red-400 text-xs">{error}</p>}
+    </div>
+  )
+}
 
 export default function ClientLoginPage() {
   const [state, action, pending] = useActionState<SignInState, FormData>(signInAction, undefined)
@@ -13,88 +70,89 @@ export default function ClientLoginPage() {
 
   return (
     <div
-      className="min-h-screen flex flex-col justify-end px-6 pb-12"
-      style={{ background: 'linear-gradient(to bottom, #110503, #1C0907)' }}
+      className="min-h-screen flex flex-col"
+      style={{ background: 'linear-gradient(160deg, #2a1810 0%, #1C0907 40%, #110503 100%)' }}
     >
-      <form action={action} className="flex flex-col gap-6">
+      {/* Header */}
+      <header className="bg-white/[0.03] border-b border-white/5 px-5 py-4 flex items-center shrink-0">
+        <Link href="/login" className="flex items-center gap-1.5">
+          <span className="text-michelin-red font-bold text-sm tracking-widest uppercase">Michelin</span>
+          <span className="font-normal text-sm text-white/70">SmartGuide</span>
+        </Link>
+      </header>
 
-        {state?.message && (
-          <p className="text-red-400 text-sm text-center bg-red-400/10 rounded px-4 py-3">
-            {state.message}
-          </p>
-        )}
-
-        {/* Email */}
-        <div className="flex flex-col gap-2">
-          <label htmlFor="email" className="text-white font-semibold text-base">Email</label>
-          <div className="relative">
-            <Mail
-              size={16}
-              className="absolute left-3 top-1/2 -translate-y-1/2 text-michelin-black/50"
-              strokeWidth={1.5}
-            />
-            <input
-              id="email"
-              name="email"
-              type="email"
-              autoComplete="email"
-              className="w-full bg-[#D9D9D9] rounded pl-9 pr-4 py-4 text-sm text-michelin-black outline-none"
-            />
-          </div>
-          {state?.errors?.email && (
-            <p className="text-red-400 text-xs">{state.errors.email[0]}</p>
-          )}
+      <div className="flex-1 flex flex-col justify-end px-6 pb-12 pt-8">
+        {/* Title */}
+        <div className="mb-8">
+          <p className="text-white/40 text-xs tracking-widest uppercase font-medium mb-2">Connexion</p>
+          <h1 className="text-white font-bold text-2xl leading-snug">
+            Bon retour<br />parmi nous
+          </h1>
         </div>
 
-        {/* Mot de passe */}
-        <div className="flex flex-col gap-2">
-          <label htmlFor="password" className="text-white font-semibold text-base">Mot de passe</label>
-          <div className="relative">
-            <input
-              id="password"
-              name="password"
-              type={passwordVisible ? 'text' : 'password'}
-              autoComplete="current-password"
-              className="w-full bg-[#D9D9D9] rounded px-4 pr-11 py-4 text-sm text-michelin-black outline-none"
-            />
-            <button
-              type="button"
-              onClick={() => setPasswordVisible((v) => !v)}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-michelin-black/40 hover:text-michelin-black/70 transition-colors"
-              aria-label={passwordVisible ? 'Masquer le mot de passe' : 'Afficher le mot de passe'}
-            >
-              {passwordVisible ? <EyeOff size={16} strokeWidth={1.5} /> : <Eye size={16} strokeWidth={1.5} />}
-            </button>
-          </div>
-          {state?.errors?.password && (
-            <p className="text-red-400 text-xs">{state.errors.password[0]}</p>
+        <form action={action} className="flex flex-col gap-5">
+          {state?.message && (
+            <div className="text-red-400 text-sm text-center bg-red-500/10 border border-red-500/20 rounded-sm px-4 py-3">
+              {state.message}
+            </div>
           )}
-          <Link
-            href="/login/forgot"
-            className="text-white/50 text-xs self-end hover:text-white/80 transition-colors"
+
+          <FloatingInput
+            id="email"
+            name="email"
+            type="email"
+            autoComplete="email"
+            label="Email"
+            icon={Mail}
+            error={state?.errors?.email?.[0]}
+          />
+
+          <div className="flex flex-col gap-1.5">
+            <label htmlFor="password" className="text-white/70 text-xs font-medium tracking-wider uppercase">
+              Mot de passe
+            </label>
+            <div className={`relative flex items-center rounded-sm border border-white/15 bg-white/5`}>
+              <Lock size={15} strokeWidth={1.5} className="absolute left-3.5 text-white/30" />
+              <input
+                id="password"
+                name="password"
+                type={passwordVisible ? 'text' : 'password'}
+                autoComplete="current-password"
+                className="w-full bg-transparent py-4 pl-10 pr-11 text-sm text-white placeholder-white/25 outline-none focus:border-michelin-red/70"
+              />
+              <button
+                type="button"
+                onClick={() => setPasswordVisible((v) => !v)}
+                className="absolute right-3 text-white/30 hover:text-white/60 transition-colors"
+                aria-label={passwordVisible ? 'Masquer' : 'Afficher'}
+              >
+                {passwordVisible ? <EyeOff size={15} strokeWidth={1.5} /> : <Eye size={15} strokeWidth={1.5} />}
+              </button>
+            </div>
+            {state?.errors?.password && (
+              <p className="text-red-400 text-xs">{state.errors.password[0]}</p>
+            )}
+            <Link href="/login/forgot" className="text-white/35 text-xs self-end mt-0.5 hover:text-white/60 transition-colors">
+              Mot de passe oublié ?
+            </Link>
+          </div>
+
+          <button
+            type="submit"
+            disabled={pending}
+            className="w-full bg-michelin-red text-white text-sm font-semibold py-4 rounded-sm mt-2 hover:bg-red-700 active:scale-[0.98] transition-all duration-150 disabled:opacity-50"
           >
-            Mot de passe oublié&nbsp;?
-          </Link>
-        </div>
+            {pending ? 'Connexion…' : 'Se connecter'}
+          </button>
 
-        {/* Submit */}
-        <button
-          type="submit"
-          disabled={pending}
-          className="w-full bg-michelin-red text-white text-sm font-medium py-4 rounded hover:opacity-90 transition-opacity mt-2 disabled:opacity-60"
-        >
-          {pending ? 'Connexion…' : 'Se connecter'}
-        </button>
-
-        {/* Register */}
-        <p className="text-center text-white/50 text-sm">
-          Pas encore de compte&nbsp;?{' '}
-          <Link href="/login/register" className="text-white hover:opacity-80 transition-opacity">
-            Inscrivez-vous
-          </Link>
-        </p>
-
-      </form>
+          <p className="text-center text-white/35 text-sm">
+            Pas encore de compte ?{' '}
+            <Link href="/login/register" className="text-white/70 hover:text-white transition-colors underline underline-offset-2">
+              Inscrivez-vous
+            </Link>
+          </p>
+        </form>
+      </div>
     </div>
   )
 }
