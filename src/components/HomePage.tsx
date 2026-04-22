@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState } from 'react'
+import React, { useCallback, useState } from 'react'
 import Link from 'next/link'
 import { Star, ArrowRight } from 'lucide-react'
 import AppHeader from '@/components/AppHeader'
@@ -36,9 +36,9 @@ export default function HomePage() {
   const [activeFilter, setActiveFilter] = useState<FiltreAccueil>(FILTRE_ACCUEIL.A_PROXIMITE)
   const { user, profile } = useAuth()
 
-  const handleFilterFallback = () => {
+  const handleFilterFallback = useCallback(() => {
     setActiveFilter(FILTRE_ACCUEIL.ETOILES)
-  }
+  }, [])
 
   const fullName = profile?.full_name ?? user?.user_metadata?.full_name ?? null
   const prenom = fullName?.split(' ')[0] ?? null
