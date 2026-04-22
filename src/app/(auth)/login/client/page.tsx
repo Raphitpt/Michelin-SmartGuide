@@ -3,9 +3,8 @@
 import Link from 'next/link'
 import { useState } from 'react'
 import { Mail, Eye, EyeOff, Lock } from 'lucide-react'
-import { useActionState } from 'react'
-import { signInAction } from '@/lib/auth/actions'
-import type { SignInState } from '@/lib/auth/schemas'
+import { useRouter } from 'next/navigation'
+import { createClient } from '@/utils/supabase/client'
 
 function FloatingInput({
   id,
@@ -65,8 +64,31 @@ function FloatingInput({
 }
 
 export default function ClientLoginPage() {
-  const [state, action, pending] = useActionState<SignInState, FormData>(signInAction, undefined)
+  const [error, setError] = useState<string | null>(null)
+  const [pending, setPending] = useState(false)
   const [passwordVisible, setPasswordVisible] = useState(false)
+  const router = useRouter()
+
+  async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault()
+    setError(null)
+    setPending(true)
+    const form = new FormData(e.currentTarget)
+    const email = form.get('email') as string
+    const password = form.get('password') as string
+
+    const supabase = createClient()
+    const { error: authError } = await supabase.auth.signInWithPassword({ email, password })
+
+    if (authError) {
+      setError('Email ou mot de passe incorrect.')
+      setPending(false)
+      return
+    }
+
+    router.push('/')
+    router.refresh()
+  }
 
   return (
     <div
@@ -90,10 +112,10 @@ export default function ClientLoginPage() {
           </h1>
         </div>
 
-        <form action={action} className="flex flex-col gap-5">
-          {state?.message && (
+        <form onSubmit={handleSubmit} className="flex flex-col gap-5">
+          {error && (
             <div className="text-red-400 text-sm text-center bg-red-500/10 border border-red-500/20 rounded-sm px-4 py-3">
-              {state.message}
+              {error}
             </div>
           )}
 
@@ -104,7 +126,6 @@ export default function ClientLoginPage() {
             autoComplete="email"
             label="Email"
             icon={Mail}
-            error={state?.errors?.email?.[0]}
           />
 
           <div className="flex flex-col gap-1.5">
@@ -129,9 +150,6 @@ export default function ClientLoginPage() {
                 {passwordVisible ? <EyeOff size={15} strokeWidth={1.5} /> : <Eye size={15} strokeWidth={1.5} />}
               </button>
             </div>
-            {state?.errors?.password && (
-              <p className="text-red-400 text-xs">{state.errors.password[0]}</p>
-            )}
             <Link href="/login/forgot" className="text-white/35 text-xs self-end mt-0.5 hover:text-white/60 transition-colors">
               Mot de passe oublié ?
             </Link>

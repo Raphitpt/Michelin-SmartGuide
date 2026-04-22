@@ -46,7 +46,7 @@ export default function HomePage() {
       .select('archetype_id, archetype_score')
       .eq('user_id', user.id)
       .maybeSingle()
-      .then(async ({ data }) => {
+      .then(async ({ data, error }) => {
         if (!data) return
         const { data: arch } = await supabase
           .from('reco_archetypes')
@@ -54,8 +54,8 @@ export default function HomePage() {
           .eq('id', data.archetype_id)
           .maybeSingle()
         setTasteProfile({
-          archetypeName: arch?.nom ?? data.archetype_id,
-          archetypeScore: Math.round(data.archetype_score),
+          archetypeName: arch?.nom ?? data.archetype_id ?? '—',
+          archetypeScore: Math.round(data.archetype_score ?? 0),
         })
       })
   }, [user])
