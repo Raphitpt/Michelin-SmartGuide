@@ -1,16 +1,30 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import Link from 'next/link'
 import { Heart, MapPin } from 'lucide-react'
 import { FILTRE_ACCUEIL, FiltreAccueil } from '@/constants'
 import { useGeolocation } from '@/hooks/useGeolocation'
+import { useAuth } from '@/context/AuthContext'
 import MichelinStar from '@/components/MichelinStar'
-import { Database } from '@/types/supabase'
 
-type MichelinAward = Database['public']['Tables']['michelin_awards']['Row']
-type Restaurant = Database['public']['Tables']['restaurants']['Row'] & {
-  michelin_awards: MichelinAward | null
+interface RestaurantCard {
+  id: string
+  name: string
+  city: string | null
+  main_image: string | null
+  price_avg_eur: number | null
+  stars: number
+}
+
+const FILTER_PARAM: Record<string, string> = {
+  [FILTRE_ACCUEIL.ETOILES]:      'ETOILES',
+  [FILTRE_ACCUEIL.BIB_GOURMAND]: 'BIB_GOURMAND',
+  [FILTRE_ACCUEIL.TERRASSE]:     'TERRASSE',
+}
+
+const STARS_BY_SLUG: Record<string, number> = {
+  ONE_STAR: 1, TWO_STARS: 2, THREE_STARS: 3,
 }
 
 function StarRating({ count }: Readonly<{ count: number }>) {
@@ -23,7 +37,7 @@ function StarRating({ count }: Readonly<{ count: number }>) {
   )
 }
 
-function HomeRestaurantCard({ restaurant }: Readonly<{ restaurant: Restaurant }>) {
+function Card({ restaurant }: Readonly<{ restaurant: RestaurantCard }>) {
   return (
     <Link
       href={`/restaurants/${restaurant.id}`}
@@ -39,9 +53,11 @@ function HomeRestaurantCard({ restaurant }: Readonly<{ restaurant: Restaurant }>
         </div>
       </div>
       <div className="p-3">
-        <div className="mb-1">
-          <StarRating count={restaurant.michelin_awards?.stars ?? 0} />
-        </div>
+        {restaurant.stars > 0 && (
+          <div className="mb-1">
+            <StarRating count={restaurant.stars} />
+          </div>
+        )}
         <p className="font-semibold text-michelin-black text-sm leading-snug">{restaurant.name}</p>
         <p className="text-michelin-gray text-xs mt-0.5">{restaurant.city}</p>
         {restaurant.price_avg_eur && (
@@ -64,33 +80,86 @@ function SkeletonCard() {
   )
 }
 
-interface HomeRestaurantListProps {
+function Skeletons() {
+  return (
+    <div className="flex gap-3 overflow-x-auto px-4 pb-2 scrollbar-none">
+      {Array.from({ length: 5 }, (_, i) => <SkeletonCard key={i} />)}
+    </div>
+  )
+}
+
+interface Props {
   activeFilter: FiltreAccueil
   onFilterFallback: () => void
 }
 
-export default function HomeRestaurantList({ activeFilter, onFilterFallback }: HomeRestaurantListProps) {
+export default function HomeRestaurantList({ activeFilter, onFilterFallback }: Props) {
   const [mounted, setMounted] = useState(false)
-  const [restaurants, setRestaurants] = useState<Restaurant[]>([])
+  const [restaurants, setRestaurants] = useState<RestaurantCard[]>([])
+  const [loading, setLoading] = useState(false)
   const [fetchError, setFetchError] = useState(false)
   const { coords, status } = useGeolocation()
+  const { user } = useAuth()
 
   useEffect(() => { setMounted(true) }, [])
 
   const isProximity = activeFilter === FILTRE_ACCUEIL.A_PROXIMITE
 
+  // Fetch nearby restaurants
   useEffect(() => {
     if (!isProximity || !coords) return
 
     setFetchError(false)
+    setLoading(true)
     fetch(`/api/restaurants/nearby?lat=${coords.lat}&lng=${coords.lng}&radius=50000`)
       .then((res) => {
         if (!res.ok) throw new Error('fetch failed')
-        return res.json() as Promise<{ restaurants: Restaurant[] }>
+        return res.json() as Promise<{ restaurants: Array<{ id: string; name: string; city: string | null; main_image: string | null; price_avg_eur: number | null; michelin_awards: { stars: number } | null }> }>
       })
-      .then(({ restaurants }) => setRestaurants(restaurants))
+      .then(({ restaurants }) => {
+        setRestaurants(restaurants.map((r) => ({
+          id: r.id,
+          name: r.name,
+          city: r.city,
+          main_image: r.main_image,
+          price_avg_eur: r.price_avg_eur,
+          stars: r.michelin_awards?.stars ?? 0,
+        })))
+      })
       .catch(() => setFetchError(true))
+      .finally(() => setLoading(false))
   }, [isProximity, coords])
+
+  // Fetch recommended restaurants (archetype-scored)
+  const fetchRecommended = useCallback(() => {
+    const filterParam = FILTER_PARAM[activeFilter]
+    if (!filterParam || !user?.id) return
+
+    setFetchError(false)
+    setLoading(true)
+    setRestaurants([])
+    fetch(`/api/restaurants/recommended?userId=${user.id}&filter=${filterParam}`)
+      .then((res) => {
+        if (!res.ok) throw new Error('fetch failed')
+        return res.json() as Promise<{ restaurants: Array<{ id: string; name: string | null; city: string | null; main_image: string | null; price_avg_eur: number | null; award_slug: string | null }> }>
+      })
+      .then(({ restaurants }) => {
+        setRestaurants(restaurants.map((r) => ({
+          id: r.id ?? '',
+          name: r.name ?? '',
+          city: r.city,
+          main_image: r.main_image,
+          price_avg_eur: r.price_avg_eur,
+          stars: STARS_BY_SLUG[r.award_slug ?? ''] ?? 0,
+        })))
+      })
+      .catch(() => setFetchError(true))
+      .finally(() => setLoading(false))
+  }, [activeFilter, user?.id])
+
+  useEffect(() => {
+    if (!isProximity) fetchRecommended()
+  }, [isProximity, fetchRecommended])
 
   // Géoloc denied/unavailable → fallback
   useEffect(() => {
@@ -102,11 +171,7 @@ export default function HomeRestaurantList({ activeFilter, onFilterFallback }: H
   if (!mounted) return null
 
   if (isProximity && (status === 'idle' || status === 'loading') && restaurants.length === 0) {
-    return (
-      <div className="flex gap-3 overflow-x-auto px-4 pb-2 scrollbar-none">
-        {Array.from({ length: 5 }, (_, i) => <SkeletonCard key={i} />)}
-      </div>
-    )
+    return <Skeletons />
   }
 
   if (isProximity && (status === 'denied' || status === 'unavailable')) {
@@ -121,10 +186,12 @@ export default function HomeRestaurantList({ activeFilter, onFilterFallback }: H
     )
   }
 
+  if (loading && restaurants.length === 0) return <Skeletons />
+
   if (fetchError) {
     return (
       <div className="px-4 py-4 text-michelin-gray text-xs text-center">
-        Impossible de charger les restaurants à proximité.
+        Impossible de charger les restaurants.
       </div>
     )
   }
@@ -134,7 +201,7 @@ export default function HomeRestaurantList({ activeFilter, onFilterFallback }: H
   return (
     <div className="flex gap-3 overflow-x-auto px-4 pb-2 scrollbar-none">
       {restaurants.map((r) => (
-        <HomeRestaurantCard key={r.id} restaurant={r} />
+        <Card key={r.id} restaurant={r} />
       ))}
     </div>
   )
