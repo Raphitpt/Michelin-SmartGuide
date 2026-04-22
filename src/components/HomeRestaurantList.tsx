@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react'
 import Link from 'next/link'
-import { Heart, MapPin } from 'lucide-react'
+import { Heart, MapPin, UserCircle } from 'lucide-react'
 import { FILTRE_ACCUEIL, FiltreAccueil } from '@/constants'
 import { useGeolocation } from '@/hooks/useGeolocation'
 import { useAuth } from '@/context/AuthContext'
@@ -142,15 +142,18 @@ export default function HomeRestaurantList({ activeFilter, onFilterFallback }: P
       .finally(() => setLoading(false))
   }, [isProximity, coords])
 
-  // Fetch recommended restaurants (archetype-scored)
+  // Fetch recommended restaurants (archetype-scored if logged in, unscored otherwise)
   const fetchRecommended = useCallback(() => {
     const filterParam = FILTER_PARAM[activeFilter]
-    if (!filterParam || !user?.id) return
+    if (!filterParam) return
 
     setFetchError(false)
     setLoading(true)
     setRestaurants([])
-    fetch(`/api/restaurants/recommended?userId=${user.id}&filter=${filterParam}`)
+    const url = user?.id
+      ? `/api/restaurants/recommended?userId=${user.id}&filter=${filterParam}`
+      : `/api/restaurants/recommended?filter=${filterParam}`
+    fetch(url)
       .then((res) => {
         if (!res.ok) throw new Error('fetch failed')
         return res.json() as Promise<{ restaurants: Array<{ id: string; name: string | null; city: string | null; main_image: string | null; price_avg_eur: number | null; award_slug: string | null }> }>
@@ -211,10 +214,23 @@ export default function HomeRestaurantList({ activeFilter, onFilterFallback }: P
   if (!restaurants.length) return null
 
   return (
-    <div className="flex gap-3 overflow-x-auto px-4 pb-2 scrollbar-none">
-      {restaurants.map((r) => (
-        <Card key={r.id} restaurant={r} userId={user?.id} />
-      ))}
+    <div className="flex flex-col gap-3">
+      {!isProximity && !user && (
+        <Link
+          href="/login"
+          className="mx-4 flex items-center gap-3 bg-michelin-black/5 rounded-xl px-4 py-3 hover:bg-michelin-black/10 transition-colors"
+        >
+          <UserCircle size={20} className="text-michelin-black shrink-0" strokeWidth={1.5} />
+          <p className="text-michelin-black text-xs leading-snug">
+            <span className="font-semibold">Connectez-vous</span> pour voir les restaurants selon votre profil sensoriel.
+          </p>
+        </Link>
+      )}
+      <div className="flex gap-3 overflow-x-auto px-4 pb-2 scrollbar-none">
+        {restaurants.map((r) => (
+          <Card key={r.id} restaurant={r} userId={user?.id} />
+        ))}
+      </div>
     </div>
   )
 }

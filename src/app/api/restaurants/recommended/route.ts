@@ -8,8 +8,8 @@ export async function GET(req: NextRequest) {
   const userId = searchParams.get('userId')
   const filter = searchParams.get('filter')
 
-  if (!userId || !filter) {
-    return NextResponse.json({ error: 'userId and filter are required' }, { status: 400 })
+  if (!filter) {
+    return NextResponse.json({ error: 'filter is required' }, { status: 400 })
   }
 
   const supabase = createAdminClient()
