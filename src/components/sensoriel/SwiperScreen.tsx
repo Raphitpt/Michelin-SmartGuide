@@ -86,6 +86,7 @@ export default function SwiperScreen({ restaurants, onComplete }: Props) {
                 onPass={handlePass}
                 isTop={i === 0}
                 stackOffset={STACK_OFFSETS[i]}
+                zIndex={3 - i}
               />
             ))}
           </AnimatePresence>

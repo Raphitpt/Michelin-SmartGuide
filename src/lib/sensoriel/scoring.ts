@@ -46,7 +46,11 @@ export function computeArchetypeScores(
 export function pickBestArchetype(
   archetypeScores: Record<string, number>,
   archetypes: Archetype[]
-): { archetype: Archetype; scorePct: number } {
+): { archetype: Archetype | null; scorePct: number } {
+  if (archetypes.length === 0) {
+    return { archetype: null, scorePct: 0 }
+  }
+
   let bestId = archetypes[0].id
   let bestScore = archetypeScores[bestId] ?? 0
 
@@ -60,9 +64,9 @@ export function pickBestArchetype(
 
   const allScores = archetypes.map(a => archetypeScores[a.id] ?? 0)
   const maxPossible = Math.max(...allScores, 1)
-  const scorePct = Math.min(100, Math.round((bestScore / maxPossible) * 100))
+  const scorePct = Math.max(0, Math.min(100, Math.round((bestScore / maxPossible) * 100)))
 
-  const archetype = archetypes.find(a => a.id === bestId)!
+  const archetype = archetypes.find(a => a.id === bestId) ?? null
   return { archetype, scorePct }
 }
 

@@ -1,7 +1,6 @@
 'use server'
 
-import { cookies } from 'next/headers'
-import { createClient, createAdminClient } from '@/utils/supabase/server'
+import { createAdminClient } from '@/utils/supabase/server'
 import type { ScoreVector } from './scoring'
 
 export async function createSwipeSession(userId: string): Promise<string> {
@@ -27,12 +26,18 @@ export async function saveSwipe({
   liked: boolean
 }): Promise<void> {
   const supabase = createAdminClient()
-  const { error } = await supabase.from('user_swipes').insert({
-    session_id: sessionId,
-    user_id: userId,
-    restaurant_id: restaurantId,
-    liked,
-  })
+  const { error } = await supabase.from('user_swipes').upsert(
+    {
+      session_id: sessionId,
+      user_id: userId,
+      restaurant_id: restaurantId,
+      liked,
+      swiped_at: new Date().toISOString(),
+    },
+    {
+      onConflict: 'session_id,restaurant_id',
+    }
+  )
   if (error) throw new Error(`Failed to save swipe: ${error.message}`)
 }
 
@@ -53,19 +58,25 @@ export async function saveTasteProfile({
 }): Promise<void> {
   const supabase = createAdminClient()
 
-  await supabase
+  const { error: sessionError } = await supabase
     .from('swipe_sessions')
     .update({ completed: true, completed_at: new Date().toISOString() })
     .eq('id', sessionId)
+  if (sessionError) throw new Error(`Failed to complete swipe session: ${sessionError.message}`)
 
-  const { error } = await supabase.from('user_taste_profiles').upsert({
-    user_id: userId,
-    archetype_id: archetypeId,
-    archetype_score: archetypeScore,
-    score_vector: scoreVector as Record<string, number>,
-    swipe_count: swipeCount,
-    last_session_id: sessionId,
-    updated_at: new Date().toISOString(),
-  })
+  const { error } = await supabase.from('user_taste_profiles').upsert(
+    {
+      user_id: userId,
+      archetype_id: archetypeId,
+      archetype_score: archetypeScore,
+      score_vector: scoreVector as Record<string, number>,
+      swipe_count: swipeCount,
+      last_session_id: sessionId,
+      updated_at: new Date().toISOString(),
+    },
+    {
+      onConflict: 'user_id',
+    }
+  )
   if (error) throw new Error(`Failed to save taste profile: ${error.message}`)
 }
