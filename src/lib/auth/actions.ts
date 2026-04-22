@@ -35,13 +35,36 @@ export async function signInAction(
   const cookieStore = await cookies();
   const supabase = createClient(cookieStore);
 
-  const { error } = await supabase.auth.signInWithPassword({
+  const { data: authData, error } = await supabase.auth.signInWithPassword({
     email: validated.data.email,
     password: validated.data.password,
   });
 
   if (error) {
     return { message: "Email ou mot de passe incorrect." };
+  }
+
+  // Block chefs with unverified/rejected claims
+  if (authData.user) {
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("role")
+      .eq("id", authData.user.id)
+      .single();
+
+    if (profile?.role === "chef") {
+      const { data: claim } = await supabase
+        .from("ownership_claims")
+        .select("status")
+        .eq("user_id", authData.user.id)
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .single();
+
+      if (!claim || claim.status !== "accepted") {
+        redirect("/login/restaurant/status");
+      }
+    }
   }
 
   redirect("/");
@@ -179,130 +202,75 @@ export async function submitClaimAction(
   prevState: ClaimState,
   formData: FormData,
 ): Promise<ClaimState> {
-  const raw = {
-    restaurant_name: formData.get("restaurant_name") as string,
-    siret: formData.get("siret") as string,
-  };
+  const raw = { restaurant_id: formData.get("restaurant_id") as string };
 
   const validated = claimSchema.safeParse(raw);
   if (!validated.success) {
     return { errors: validated.error.flatten().fieldErrors };
   }
 
-  const kbisFile = formData.get("kbis") as File | null;
-  const factureFile = formData.get("facture") as File | null;
-
-  if (!kbisFile || kbisFile.size === 0) {
-    return { errors: { kbis: ["Le Kbis est requis."] } };
-  }
-  if (!factureFile || factureFile.size === 0) {
-    return { errors: { facture: ["La facture professionnelle est requise."] } };
-  }
-
-  const allowedMime = [
-    "application/pdf",
-    "image/jpeg",
-    "image/png",
-    "image/webp",
-  ];
-  if (!allowedMime.includes(kbisFile.type)) {
-    return { errors: { kbis: ["Format non supporté (PDF, JPG, PNG, WEBP)."] } };
-  }
-  if (!allowedMime.includes(factureFile.type)) {
-    return {
-      errors: { facture: ["Format non supporté (PDF, JPG, PNG, WEBP)."] },
-    };
-  }
-
-  const maxSize = 5 * 1024 * 1024; // 5 MB
-  if (kbisFile.size > maxSize) {
-    return { errors: { kbis: ["Fichier trop volumineux (max 5 Mo)."] } };
-  }
-  if (factureFile.size > maxSize) {
-    return { errors: { facture: ["Fichier trop volumineux (max 5 Mo)."] } };
-  }
-
   const cookieStore = await cookies();
   const supabase = createClient(cookieStore);
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { message: "Vous devez être connecté." };
 
-  if (!user) {
-    return { message: "Vous devez être connecté." };
-  }
-
-  // Find the restaurant by name
-  const { data: restaurants } = await supabase
+  // Load restaurant + its country
+  const { data: restaurant } = await supabase
     .from("restaurants")
-    .select("id, name")
-    .ilike("name", `%${validated.data.restaurant_name}%`)
-    .limit(1);
+    .select("id, name, country_id")
+    .eq("id", validated.data.restaurant_id)
+    .single();
 
-  if (!restaurants || restaurants.length === 0) {
-    return {
-      errors: { restaurant_name: ["Aucun restaurant trouvé avec ce nom."] },
-    };
+  if (!restaurant) {
+    return { errors: { restaurant_id: ["Restaurant introuvable."] } };
   }
 
-  const restaurant = restaurants[0];
-
-  // Check no pending claim already exists
+  // Check no existing claim
   const { data: existingClaim } = await supabase
     .from("ownership_claims")
     .select("id")
     .eq("user_id", user.id)
     .eq("restaurant_id", restaurant.id)
-    .single();
+    .maybeSingle();
 
   if (existingClaim) {
-    return {
-      message: "Une demande de revendication existe déjà pour ce restaurant.",
-    };
+    return { message: "Une demande de revendication existe déjà pour ce restaurant." };
   }
 
-  // Upload files to Supabase Storage
-  const uploadFile = async (file: File, prefix: string) => {
-    const ext = file.name.split(".").pop();
-    const path = `${user.id}/${prefix}_${Date.now()}.${ext}`;
-    const { error } = await supabase.storage
-      .from("claim-documents")
-      .upload(path, file, {
-        contentType: file.type,
-        upsert: false,
-      });
-    if (error) throw error;
-    const { data: urlData } = supabase.storage
-      .from("claim-documents")
-      .getPublicUrl(path);
-    return { url: urlData.publicUrl, path };
-  };
+  // Load required document types for this country
+  const { data: docTypes } = await supabase
+    .from("country_document_types")
+    .select("id, slug, label, required")
+    .eq("country_id", restaurant.country_id)
+    .order("sort_order");
 
-  let kbisUrl: string;
-  let factureUrl: string;
-
-  try {
-    const [kbisResult, factureResult] = await Promise.all([
-      uploadFile(kbisFile, "kbis"),
-      uploadFile(factureFile, "facture"),
-    ]);
-    kbisUrl = kbisResult.url;
-    factureUrl = factureResult.url;
-  } catch {
-    return {
-      message: "Erreur lors de l'upload des documents. Veuillez réessayer.",
-    };
+  if (!docTypes || docTypes.length === 0) {
+    return { message: "Aucun type de document configuré pour ce pays." };
   }
+
+  const allowedMime = ["application/pdf", "image/jpeg", "image/png", "image/webp"];
+  const maxSize = 5 * 1024 * 1024;
+
+  // Validate all required files
+  const fileErrors: Record<string, string[]> = {};
+  for (const dt of docTypes) {
+    if (!dt.required) continue;
+    const file = formData.get(dt.slug) as File | null;
+    if (!file || file.size === 0) {
+      fileErrors[dt.slug] = [`${dt.label} est requis.`];
+    } else if (!allowedMime.includes(file.type)) {
+      fileErrors[dt.slug] = ["Format non supporté (PDF, JPG, PNG, WEBP)."];
+    } else if (file.size > maxSize) {
+      fileErrors[dt.slug] = ["Fichier trop volumineux (max 5 Mo)."];
+    }
+  }
+  if (Object.keys(fileErrors).length > 0) return { errors: fileErrors };
 
   // Create the ownership claim
   const { data: claim, error: claimError } = await supabase
     .from("ownership_claims")
-    .insert({
-      user_id: user.id,
-      restaurant_id: restaurant.id,
-      status: "pending",
-    })
+    .insert({ user_id: user.id, restaurant_id: restaurant.id, status: "pending" })
     .select("id")
     .single();
 
@@ -310,38 +278,91 @@ export async function submitClaimAction(
     return { message: "Erreur lors de la création de la demande." };
   }
 
-  // Look up document types by slug
-  const { data: docTypes } = await supabase
-    .from("country_document_types")
-    .select("id, slug")
-    .in("slug", ["kbis", "facture-pro"]);
+  // Upload and save each document
+  const uploadFile = async (file: File, prefix: string) => {
+    const ext = file.name.split(".").pop();
+    const path = `${user.id}/${prefix}_${Date.now()}.${ext}`;
+    const { error } = await supabase.storage
+      .from("claim-documents")
+      .upload(path, file, { contentType: file.type, upsert: false });
+    if (error) throw error;
+    return supabase.storage.from("claim-documents").getPublicUrl(path).data.publicUrl;
+  };
 
-  const kbisTypeId = docTypes?.find((d) => d.slug === "kbis")?.id;
-  const factureTypeId = docTypes?.find((d) => d.slug === "facture-pro")?.id;
-
-  if (kbisTypeId) {
-    await supabase.from("claim_documents").insert({
-      claim_id: claim.id,
-      document_type_id: kbisTypeId,
-      file_url: kbisUrl,
-      mime_type: kbisFile.type,
-      file_size_kb: Math.round(kbisFile.size / 1024),
-      status: "pending",
-    });
-  }
-
-  if (factureTypeId) {
-    await supabase.from("claim_documents").insert({
-      claim_id: claim.id,
-      document_type_id: factureTypeId,
-      file_url: factureUrl,
-      mime_type: factureFile.type,
-      file_size_kb: Math.round(factureFile.size / 1024),
-      status: "pending",
-    });
+  try {
+    for (const dt of docTypes) {
+      const file = formData.get(dt.slug) as File | null;
+      if (!file || file.size === 0) continue;
+      const url = await uploadFile(file, dt.slug);
+      await supabase.from("claim_documents").insert({
+        claim_id: claim.id,
+        document_type_id: dt.id,
+        file_url: url,
+        mime_type: file.type,
+        file_size_kb: Math.round(file.size / 1024),
+        status: "pending",
+      });
+    }
+  } catch {
+    return { message: "Erreur lors de l'upload des documents. Veuillez réessayer." };
   }
 
   return { success: true };
+}
+
+// ─── Restaurant search (for claim form) ──────────────────────────────────────
+
+export async function searchRestaurantsAction(query: string) {
+  const cookieStore = await cookies();
+  const supabase = createClient(cookieStore);
+
+  if (!query || query.trim().length < 2) return [];
+
+  const { data } = await supabase
+    .from("restaurants")
+    .select("id, name, city, country_id")
+    .ilike("name", `%${query.trim()}%`)
+    .limit(10);
+
+  return data ?? [];
+}
+
+export async function getDocumentTypesAction(countryId: string) {
+  const cookieStore = await cookies();
+  const supabase = createClient(cookieStore);
+
+  const { data } = await supabase
+    .from("country_document_types")
+    .select("id, slug, label, description, required, accepted_formats")
+    .eq("country_id", countryId)
+    .order("sort_order");
+
+  return data ?? [];
+}
+
+export async function getClaimStatusAction() {
+  const cookieStore = await cookies();
+  const supabase = createClient(cookieStore);
+
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return null;
+
+  const { data } = await supabase
+    .from("ownership_claims")
+    .select(`
+      id,
+      status,
+      admin_comment,
+      created_at,
+      updated_at,
+      restaurants (id, name, city)
+    `)
+    .eq("user_id", user.id)
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .single();
+
+  return data ?? null;
 }
 
 // ─── Forgot password ──────────────────────────────────────────────────────────
