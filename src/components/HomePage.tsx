@@ -1,12 +1,13 @@
 'use client'
 
-import React, { useCallback, useState } from 'react'
+import React, { useCallback, useEffect, useState } from 'react'
 import Link from 'next/link'
 import { Star, ArrowRight } from 'lucide-react'
 import AppHeader from '@/components/AppHeader'
 import HomeRestaurantList from '@/components/HomeRestaurantList'
-import { FILTRE_ACCUEIL, FiltreAccueil, ROUTES, UTILISATEUR } from '@/constants'
+import { FILTRE_ACCUEIL, FiltreAccueil, ROUTES } from '@/constants'
 import { useAuth } from '@/context/AuthContext'
+import { createClient } from '@/utils/supabase/client'
 
 const FILTERS = Object.values(FILTRE_ACCUEIL)
 
@@ -35,6 +36,29 @@ function CircularProgress({ value }: Readonly<{ value: number }>) {
 export default function HomePage() {
   const [activeFilter, setActiveFilter] = useState<FiltreAccueil>(FILTRE_ACCUEIL.A_PROXIMITE)
   const { user, profile } = useAuth()
+  const [tasteProfile, setTasteProfile] = useState<{ archetypeName: string; archetypeScore: number } | null>(null)
+
+  useEffect(() => {
+    if (!user) return
+    const supabase = createClient()
+    supabase
+      .from('user_taste_profiles')
+      .select('archetype_id, archetype_score')
+      .eq('user_id', user.id)
+      .maybeSingle()
+      .then(async ({ data }) => {
+        if (!data) return
+        const { data: arch } = await supabase
+          .from('reco_archetypes')
+          .select('nom')
+          .eq('id', data.archetype_id)
+          .maybeSingle()
+        setTasteProfile({
+          archetypeName: arch?.nom ?? data.archetype_id,
+          archetypeScore: Math.round(data.archetype_score),
+        })
+      })
+  }, [user])
 
   const handleFilterFallback = useCallback(() => {
     setActiveFilter(FILTRE_ACCUEIL.ETOILES)
@@ -63,13 +87,13 @@ export default function HomePage() {
               Votre profil
             </p>
             <p className="text-white font-bold text-base leading-tight">
-              {UTILISATEUR.TYPE_PROFIL}
+              {tasteProfile?.archetypeName ?? '—'}
             </p>
             <Link href={ROUTES.PROFIL} className="text-white/60 text-xs mt-1 flex items-center gap-1 hover:text-white transition-colors">
-              Affiner mon profil <ArrowRight size={11} />
+              Afficher mon profil <ArrowRight size={11} />
             </Link>
           </div>
-          <CircularProgress value={UTILISATEUR.MATCH} />
+          <CircularProgress value={tasteProfile?.archetypeScore ?? 0} />
         </div>
       </section>
 

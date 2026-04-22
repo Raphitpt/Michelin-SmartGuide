@@ -45,10 +45,7 @@ export const forgotPasswordSchema = z.object({
 })
 
 export const claimSchema = z.object({
-  restaurant_name: z.string().min(2, { error: 'Le nom du restaurant est requis.' }).trim(),
-  siret: z
-    .string()
-    .regex(/^\d{14}$/, { error: 'Le SIRET doit contenir exactement 14 chiffres.' }),
+  restaurant_id: z.string().uuid({ message: 'Veuillez sélectionner un restaurant.' }),
 })
 
 export type SignInState =
@@ -95,7 +92,7 @@ export type ForgotPasswordState =
 
 export type ClaimState =
   | {
-      errors?: { restaurant_name?: string[]; siret?: string[]; kbis?: string[]; facture?: string[] }
+      errors?: { restaurant_id?: string[]; [docSlug: string]: string[] | undefined }
       message?: string
       success?: boolean
     }
