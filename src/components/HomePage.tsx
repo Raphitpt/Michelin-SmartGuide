@@ -123,7 +123,7 @@ export default function HomePage() {
       <section className="px-4 mb-3">
         <div className="flex items-baseline justify-between">
           <h2 className="text-michelin-black font-bold text-base">Pour vous ce soir</h2>
-          <Link href={ROUTES.RESTAURANTS} className="text-michelin-red text-sm font-medium hover:opacity-80">
+          <Link href={ROUTES.RECHERCHE} className="text-michelin-red text-sm font-medium hover:opacity-80">
             Tout voir
           </Link>
         </div>
