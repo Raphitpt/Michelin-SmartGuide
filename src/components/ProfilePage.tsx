@@ -13,7 +13,7 @@ import {
 import { ROUTES, UTILISATEUR } from "@/constants";
 import { useAuth } from "@/context/AuthContext";
 import { signOutAction } from "@/lib/auth/actions";
-import Editor from "./Editor";
+
 const MENU_ROWS = [
   {
     icon: Heart,
@@ -78,8 +78,15 @@ const STATS = [
   { value: "12", label: "Avis" },
 ];
 
+const ROLE_LABELS: Record<string, string> = {
+  visitor: "Visiteur",
+  user: "Utilisateur",
+  chef: "Chef",
+  admin: "Administrateur",
+};
+
 export default function ProfilePage() {
-  const { profile, user } = useAuth();
+  const { profile, user, role } = useAuth();
 
   const fullName =
     profile?.full_name ?? user?.user_metadata?.full_name ?? "Utilisateur";
@@ -112,6 +119,15 @@ export default function ProfilePage() {
         </div>
 
         <h1 className="text-white font-bold text-xl">{fullName}</h1>
+        {role ? (
+          <p className="text-white/70 text-xs font-medium mt-1 uppercase tracking-widest">
+            {ROLE_LABELS[role] ?? role}
+          </p>
+        ) : (
+          <p className="text-white/70 text-xs font-medium mt-1 uppercase tracking-widest">
+            {ROLE_LABELS["visitor"]}
+          </p>
+        )}
         {membreDepuis && (
           <p className="text-white/50 text-sm mt-0.5">{membreDepuis}</p>
         )}
@@ -136,8 +152,6 @@ export default function ProfilePage() {
           </div>
         ))}
       </div>
-
-      <Editor />
 
       {/* Menu */}
       <div className="flex flex-col gap-2 px-4 pt-4">
