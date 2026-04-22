@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useState, useEffect } from "react";
+import Image from "next/image";
 import {
   Settings,
   Heart,
@@ -10,6 +11,7 @@ import {
   Bell,
   ChevronRight,
   LogOut,
+  Newspaper,
 } from "lucide-react";
 import { ROUTES } from "@/constants";
 import { useAuth } from "@/context/AuthContext";
@@ -142,10 +144,14 @@ export default function ProfilePage() {
         </Link>
 
         {/* Avatar */}
-        <div className="w-20 h-20 rounded-full bg-white flex items-center justify-center mb-3">
-          <span className="text-michelin-black font-bold text-xl tracking-wide">
-            {initiales}
-          </span>
+        <div className="relative w-20 h-20 rounded-full bg-white flex items-center justify-center mb-3 overflow-hidden">
+          {profile?.avatar_url ? (
+            <Image src={profile.avatar_url} alt={fullName} fill sizes="80px" className="object-cover" />
+          ) : (
+            <span className="text-michelin-black font-bold text-xl tracking-wide">
+              {initiales}
+            </span>
+          )}
         </div>
 
         <h1 className="text-white font-bold text-xl">{fullName}</h1>
@@ -187,6 +193,24 @@ export default function ProfilePage() {
 
       {/* Menu */}
       <div className="flex flex-col gap-2 px-4 pt-4">
+        {role === "chef" && (
+          <Link
+            href={ROUTES.CHEF_ARTICLES}
+            className="flex items-center justify-between bg-white rounded-xl px-4 py-4 hover:opacity-80 transition-opacity border border-michelin-red/20"
+          >
+            <div className="flex items-center gap-3">
+              <div className="w-9 h-9 rounded-full bg-michelin-red flex items-center justify-center shrink-0">
+                <Newspaper size={16} className="text-white" strokeWidth={1.5} />
+              </div>
+              <div>
+                <p className="text-michelin-black text-sm font-medium">Mes articles</p>
+                <p className="text-michelin-gray text-xs mt-0.5">Gérer mes publications</p>
+              </div>
+            </div>
+            <ChevronRight size={16} className="text-michelin-gray shrink-0" />
+          </Link>
+        )}
+
         {MENU_ROWS.map(
           ({ icon: Icon, iconBg, iconColor, label, sub, href }) => {
             const resolvedSub = sub === null && href === ROUTES.PROFIL_GASTRO

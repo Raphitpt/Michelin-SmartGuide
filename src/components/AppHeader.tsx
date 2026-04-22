@@ -1,6 +1,7 @@
 'use client'
 
 import Link from 'next/link'
+import Image from 'next/image'
 import { ChefHat } from 'lucide-react'
 import { useAuth } from '@/context/AuthContext'
 import { ROUTES } from '@/constants'
@@ -36,8 +37,10 @@ export default function AppHeader() {
             <ChefHat size={14} strokeWidth={1.5} className="text-michelin-black" />
           </span>
         )}
-        <div className="w-9 h-9 rounded-full bg-[#4A1C1C] flex items-center justify-center shrink-0 mt-1">
-          {initiales ? (
+        <div className="relative w-9 h-9 rounded-full bg-[#4A1C1C] flex items-center justify-center shrink-0 mt-1 overflow-hidden">
+          {profile?.avatar_url ? (
+            <Image src={profile.avatar_url} alt="" fill sizes="36px" className="object-cover" />
+          ) : initiales ? (
             <span className="text-white text-xs font-bold tracking-wide">{initiales}</span>
           ) : (
             <span className="text-white/60 text-xs font-medium">→</span>

@@ -2,12 +2,13 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { Home, Search, Heart, User } from 'lucide-react'
+import { Home, Newspaper, Search, Heart, User } from 'lucide-react'
 import { motion } from 'framer-motion'
 import { NAV_LABELS, ROUTES } from '@/constants'
 
 const NAV_ITEMS = [
   { label: NAV_LABELS.ACCUEIL,   href: ROUTES.ACCUEIL,   icon: Home },
+  { label: NAV_LABELS.ARTICLES,  href: ROUTES.ARTICLES,  icon: Newspaper },
   { label: NAV_LABELS.RECHERCHE, href: ROUTES.RECHERCHE, icon: Search },
   { label: NAV_LABELS.FAVORIS,   href: ROUTES.FAVORIS,   icon: Heart },
   { label: NAV_LABELS.PROFIL,    href: ROUTES.PROFIL,    icon: User },
