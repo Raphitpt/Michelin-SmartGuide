@@ -15,12 +15,17 @@ export const ROUTES = {
   LOGIN_CLIENT:     '/login/client',
   LOGIN_RESTAURANT: '/login/restaurant',
   LOGIN_REGISTER:   '/login/register',
+  CHEF_ARTICLES:        '/chef/articles',
+  CHEF_ARTICLES_NEW:    '/chef/articles/new',
+  CHEF_ARTICLES_EDIT:   '/chef/articles/:id/edit',
+  ARTICLES:             '/articles',
 } as const
 
 // ─── Navigation ───────────────────────────────────────────────────────────────
 
 export const NAV_LABELS = {
   ACCUEIL:   'Accueil',
+  ARTICLES:  'Articles',
   RECHERCHE: 'Recherche',
   FAVORIS:   'Favoris',
   PROFIL:    'Profil',
