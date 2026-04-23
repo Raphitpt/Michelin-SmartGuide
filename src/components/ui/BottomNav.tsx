@@ -2,11 +2,12 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { Home, Newspaper, Search, Heart, User } from 'lucide-react'
+import { Home, Newspaper, Search, Heart, User, LayoutDashboard } from 'lucide-react'
 import { motion } from 'framer-motion'
 import { NAV_LABELS, ROUTES } from '@/constants'
+import { useAuth } from '@/context/AuthContext'
 
-const NAV_ITEMS = [
+const BASE_NAV_ITEMS = [
   { label: NAV_LABELS.ACCUEIL,   href: ROUTES.ACCUEIL,   icon: Home },
   { label: NAV_LABELS.ARTICLES,  href: ROUTES.ARTICLES,  icon: Newspaper },
   { label: NAV_LABELS.RECHERCHE, href: ROUTES.RECHERCHE, icon: Search },
@@ -14,10 +15,16 @@ const NAV_ITEMS = [
   { label: NAV_LABELS.PROFIL,    href: ROUTES.PROFIL,    icon: User },
 ]
 
+const ADMIN_NAV_ITEM = { label: 'Dashboard', href: ROUTES.ADMIN, icon: LayoutDashboard }
+
 const springTransition = { type: 'spring', stiffness: 300, damping: 30 } as const
 
 export default function BottomNav() {
   const pathname = usePathname()
+  const { role } = useAuth()
+  const NAV_ITEMS = role === 'admin'
+    ? [...BASE_NAV_ITEMS, ADMIN_NAV_ITEM]
+    : BASE_NAV_ITEMS
 
   return (
     <nav className="fixed bottom-0 left-0 right-0 bg-white border-t border-michelin-light-gray flex z-50">

@@ -4,14 +4,26 @@ import { createServerClient } from '@supabase/ssr'
 
 const AUTH_PATHS = ['/login']
 const PARCOURS_ROUTE = '/parcours-sensoriel'
+// Ces routes font partie du flux d'inscription restaurant et doivent rester
+// accessibles même quand l'utilisateur est connecté (chef en attente de vérification)
+const CHEF_FLOW_PATHS = ['/login/restaurant/verify', '/login/restaurant/status']
 
 function isAuthOnly(pathname: string) {
   return AUTH_PATHS.some((p) => pathname === p || pathname.startsWith(p + '/'))
 }
 
+function isChefFlowPath(pathname: string) {
+  return CHEF_FLOW_PATHS.some((p) => pathname === p || pathname.startsWith(p + '/'))
+}
+
 export async function proxy(request: NextRequest) {
   const { response, user } = await updateSession(request)
   const { pathname } = request.nextUrl
+
+  // Les pages du flux chef (verify/status) sont accessibles même connecté
+  if (isChefFlowPath(pathname)) {
+    return response
+  }
 
   if (isAuthOnly(pathname) && user) {
     return NextResponse.redirect(new URL('/', request.url))
@@ -28,6 +40,17 @@ export async function proxy(request: NextRequest) {
         },
       }
     )
+
+    // Les chefs n'ont pas de taste profile — ne pas les rediriger vers le parcours
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('role')
+      .eq('id', user.id)
+      .single()
+
+    if (profile?.role === 'chef' || profile?.role === 'admin') {
+      return response
+    }
 
     const { data } = await supabase
       .from('user_taste_profiles')
