@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/utils/supabase/server";
 import { Clock, CheckCircle, XCircle, AlertCircle, ArrowRight, LogOut } from "lucide-react";
 import { signOutAction } from "@/lib/auth/actions";
+import MissingDocsForm from "./MissingDocsForm";
 
 type ClaimStatus = "pending" | "accepted" | "refused" | "missing_infos";
 
@@ -45,7 +46,7 @@ const STATUS_CONFIG: Record<ClaimStatus, {
     bgClass: "bg-orange-500/10",
     borderClass: "border-orange-500/20",
     title: "Informations manquantes",
-    description: "Des informations complémentaires sont nécessaires pour finaliser votre demande.",
+    description: "Des documents complémentaires sont nécessaires pour finaliser votre demande.",
   },
 };
 
@@ -56,16 +57,14 @@ export default async function RestaurantStatusPage() {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect("/login");
 
-  // Check role
   const { data: profile } = await supabase
     .from("profiles")
     .select("role, full_name")
     .eq("id", user.id)
     .single();
 
-  if (!profile || profile.role !== "chef") redirect("/");
+  if (profile?.role !== "chef") redirect("/");
 
-  // Get latest claim
   const { data: claim } = await supabase
     .from("ownership_claims")
     .select(`
@@ -74,17 +73,21 @@ export default async function RestaurantStatusPage() {
       admin_comment,
       created_at,
       updated_at,
-      restaurants (id, name, city)
+      restaurants (id, name, city, country_id),
+      claim_documents (
+        id,
+        status,
+        admin_comment,
+        document_type_id,
+        country_document_types (id, slug, label, description, accepted_formats)
+      )
     `)
     .eq("user_id", user.id)
     .order("created_at", { ascending: false })
     .limit(1)
     .maybeSingle();
 
-  // No claim yet — redirect to verify
   if (!claim) redirect("/login/restaurant/verify");
-
-  // Accepted — redirect to app
   if (claim.status === "accepted") redirect("/");
 
   const status = claim.status as ClaimStatus;
@@ -96,12 +99,53 @@ export default async function RestaurantStatusPage() {
     day: "numeric", month: "long", year: "numeric",
   });
 
+  // For missing_infos: compute refused docs and unsubmitted types
+  type DocTypeRow = { id: string; slug: string; label: string; description: string | null; accepted_formats: string };
+  type ClaimDoc = typeof claim.claim_documents extends (infer T)[] ? T : never;
+
+  let refusedDocs: { id: string; document_type_id: string; admin_comment: string | null; docType: DocTypeRow | null }[] = [];
+  let unsubmittedTypes: DocTypeRow[] = [];
+
+  if (status === "missing_infos") {
+    const docs = (claim.claim_documents ?? []) as ClaimDoc[];
+
+    refusedDocs = docs
+      .filter((d) => d.status === "refused")
+      .map((d) => ({
+        id: d.id,
+        document_type_id: d.document_type_id,
+        admin_comment: d.admin_comment,
+        docType: Array.isArray(d.country_document_types)
+          ? (d.country_document_types[0] as DocTypeRow ?? null)
+          : (d.country_document_types as DocTypeRow | null),
+      }));
+
+    const countryId = (restaurant as { country_id: string | null } | null)?.country_id;
+    if (countryId) {
+      const { data: allTypes } = await supabase
+        .from("country_document_types")
+        .select("id, slug, label, description, accepted_formats")
+        .eq("country_id", countryId)
+        .order("sort_order");
+
+      const activeTypeIds = new Set(
+        docs
+          .filter((d) => d.status === "pending" || d.status === "accepted")
+          .map((d) => d.document_type_id),
+      );
+      const refusedTypeIds = new Set(refusedDocs.map((d) => d.document_type_id));
+
+      unsubmittedTypes = (allTypes ?? []).filter(
+        (dt) => !activeTypeIds.has(dt.id) && !refusedTypeIds.has(dt.id),
+      );
+    }
+  }
+
   return (
     <div
       className="min-h-screen flex flex-col"
       style={{ background: "linear-gradient(160deg, #2a1810 0%, #1C0907 45%, #110503 100%)" }}
     >
-      {/* Header */}
       <header className="bg-white/[0.03] border-b border-white/5 px-5 py-4 flex items-center justify-between shrink-0">
         <Link href="/login" className="flex items-center gap-1.5">
           <span className="text-michelin-red font-bold text-sm tracking-widest uppercase">Michelin</span>
@@ -137,11 +181,23 @@ export default async function RestaurantStatusPage() {
           </div>
         )}
 
-        {/* Admin comment */}
+        {/* Admin general comment */}
         {claim.admin_comment && (
           <div className="rounded-sm border border-white/10 bg-white/[0.03] p-4 flex flex-col gap-2">
             <p className="text-white/40 text-xs tracking-wider uppercase font-medium">Commentaire Michelin</p>
             <p className="text-white/70 text-sm leading-relaxed">{claim.admin_comment}</p>
+          </div>
+        )}
+
+        {/* Missing docs upload form */}
+        {status === "missing_infos" && (
+          <div className="rounded-sm border border-orange-500/20 bg-orange-500/5 p-4 flex flex-col gap-3">
+            <p className="text-orange-300 text-xs tracking-wider uppercase font-medium">Documents à compléter</p>
+            <MissingDocsForm
+              claimId={claim.id}
+              refusedDocs={refusedDocs}
+              unsubmittedTypes={unsubmittedTypes}
+            />
           </div>
         )}
 
@@ -150,7 +206,7 @@ export default async function RestaurantStatusPage() {
 
         {/* Actions */}
         <div className="flex flex-col gap-3 mt-auto">
-          {(status === "refused" || status === "missing_infos") && (
+          {status === "refused" && (
             <Link
               href="/login/restaurant/verify"
               className="w-full bg-michelin-red text-white text-sm font-semibold text-center py-4 rounded-sm hover:bg-red-700 active:scale-[0.98] transition-all duration-150 flex items-center justify-center gap-2"

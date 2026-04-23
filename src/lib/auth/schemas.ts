@@ -45,7 +45,8 @@ export const forgotPasswordSchema = z.object({
 })
 
 export const claimSchema = z.object({
-  restaurant_id: z.string().uuid({ message: 'Veuillez sélectionner un restaurant.' }),
+  restaurant_id: z.string().regex(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i, { message: 'Veuillez sélectionner un restaurant.' }),
+  siret: z.string().regex(/^\d{14}$/, { message: 'Le SIRET doit contenir exactement 14 chiffres.' }),
 })
 
 export type SignInState =
@@ -83,6 +84,11 @@ export type SignUpRestaurantState =
         confirm_password?: string[]
       }
       message?: string
+      values?: {
+        nom?: string
+        job_title?: string
+        email?: string
+      }
     }
   | undefined
 
@@ -92,8 +98,30 @@ export type ForgotPasswordState =
 
 export type ClaimState =
   | {
-      errors?: { restaurant_id?: string[]; [docSlug: string]: string[] | undefined }
+      errors?: {
+        restaurant_id?: string[]
+        siret?: string[]
+        docs?: Record<string, string[]>
+      }
       message?: string
       success?: boolean
+    }
+  | undefined
+
+export type RestaurantRegistrationState =
+  | {
+      errors?: {
+        // Step 1
+        nom?: string[]
+        job_title?: string[]
+        email?: string[]
+        password?: string[]
+        confirm_password?: string[]
+        // Step 2
+        restaurant_id?: string[]
+        siret?: string[]
+        docs?: Record<string, string[]>
+      }
+      message?: string
     }
   | undefined

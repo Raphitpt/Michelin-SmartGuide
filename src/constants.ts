@@ -11,14 +11,19 @@ export const ROUTES = {
   PROFIL_GASTRO:        '/profil/gastronomique',
   PROFIL_NOTIFICATIONS: '/profil/notifications',
   PROFIL_PARAMETRES:    '/profil/parametres',
-  LOGIN:            '/login',
-  LOGIN_CLIENT:     '/login/client',
-  LOGIN_RESTAURANT: '/login/restaurant',
-  LOGIN_REGISTER:   '/login/register',
+  LOGIN:                    '/login',
+  LOGIN_CLIENT:             '/login/client',
+  LOGIN_RESTAURANT:         '/login/restaurant',
+  LOGIN_RESTAURANT_VERIFY:  '/login/restaurant/verify',
+  LOGIN_RESTAURANT_STATUS:  '/login/restaurant/status',
+  LOGIN_REGISTER:           '/login/register',
+  CHEF_RESTAURANT:      '/chef/restaurant',
   CHEF_ARTICLES:        '/chef/articles',
   CHEF_ARTICLES_NEW:    '/chef/articles/new',
   CHEF_ARTICLES_EDIT:   '/chef/articles/:id/edit',
   ARTICLES:             '/articles',
+  ADMIN:                      '/admin',
+  ADMIN_REVENDICATIONS:       '/admin/revendications',
 } as const
 
 // ─── Navigation ───────────────────────────────────────────────────────────────
