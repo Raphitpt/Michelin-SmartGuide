@@ -76,6 +76,7 @@ export default function ParcoursSensorielPage() {
     useState<MatchRestaurant | null>(null);
   const [coords, setCoords] = useState<Coords | null>(null);
   const [hasGeoloc, setHasGeoloc] = useState(false);
+  const [isLoadingResult, setIsLoadingResult] = useState(false);
 
   useEffect(() => {
     fetchRestaurantsForSwipe().then((data) => {
@@ -115,6 +116,7 @@ export default function ParcoursSensorielPage() {
   }
 
   async function handleComplete(swipes: SwipeRecord[]) {
+    setIsLoadingResult(true);
     const { archetypes, weights, traitLabels, traitDimensions, dimensions } =
       await fetchArchetypesAndWeights();
 
@@ -184,6 +186,7 @@ export default function ParcoursSensorielPage() {
       : DEFAULT_RESULT;
 
     setResult(resultData);
+    setIsLoadingResult(false);
     setStep("result");
   }
 
@@ -226,6 +229,14 @@ export default function ParcoursSensorielPage() {
       );
     });
   }
+
+  if (isLoadingResult)
+    return (
+      <div className="min-h-screen bg-[#191919] flex flex-col items-center justify-center gap-6">
+        <div className="w-10 h-10 border-2 border-white/20 border-t-[#ba0b2f] rounded-full animate-spin" />
+        <p className="text-white/60 text-[14px] tracking-wide">Analyse de votre profil…</p>
+      </div>
+    );
 
   if (step === "intro") return <IntroScreen onStart={handleStart} />;
   if (step === "swipe")
