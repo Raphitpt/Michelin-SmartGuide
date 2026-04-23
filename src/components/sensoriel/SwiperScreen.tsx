@@ -102,6 +102,7 @@ export default function SwiperScreen({ restaurants, onComplete }: Props) {
               />
             ))}
           </AnimatePresence>
+
         </div>
       </div>
 
