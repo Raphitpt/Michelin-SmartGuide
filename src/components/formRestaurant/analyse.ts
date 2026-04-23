@@ -89,7 +89,7 @@ export async function analyse(formData: FormData) {
   // =====================
   const { data: recoTraitsData, error } = await supabase
     .from('reco_traits')
-    .select('id, dimension_id, label')
+    .select('id, code, dimension_id, label')
 
   if (error) throw new Error(error.message)
 
@@ -104,6 +104,7 @@ export async function analyse(formData: FormData) {
 
       acc[dimId].push({
         id: trait.id,
+        code: trait.code,
         label: trait.label,
       })
 

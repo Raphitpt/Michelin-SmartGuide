@@ -8,13 +8,23 @@ import {
   useActionState,
 } from "react";
 import Link from "next/link";
-import { Upload, CheckCircle, Building2, Hash, Search, X } from "lucide-react";
+import {
+  Upload,
+  CheckCircle,
+  Building2,
+  Hash,
+  Search,
+  X,
+  Sparkles,
+} from "lucide-react";
 import {
   submitClaimAction,
   searchRestaurantsAction,
   getDocumentTypesAction,
 } from "@/lib/auth/actions";
+import { analyse } from "@/components/formRestaurant/analyse";
 import type { ClaimState } from "@/lib/auth/schemas";
+import { useRouter } from "next/navigation";
 
 type Restaurant = {
   id: string;
@@ -160,6 +170,7 @@ export default function RestaurantVerifyPage() {
     submitClaimAction,
     undefined,
   );
+  const router = useRouter();
 
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<Restaurant[]>([]);
@@ -167,6 +178,28 @@ export default function RestaurantVerifyPage() {
   const [selected, setSelected] = useState<Restaurant | null>(null);
   const [docTypes, setDocTypes] = useState<DocType[]>([]);
   const [loadingDocs, setLoadingDocs] = useState(false);
+
+  // AI analysis state
+  const [analysisResult, setAnalysisResult] = useState<Record<
+    string,
+    unknown
+  > | null>(null);
+  const [analysisLoading, setAnalysisLoading] = useState(false);
+
+  // Persist analysis to sessionStorage whenever it resolves so the tags page can read it
+  useEffect(() => {
+    if (analysisResult) {
+      try {
+        sessionStorage.setItem(
+          "chefTagsAnalysis",
+          JSON.stringify(analysisResult),
+        );
+      } catch {
+        /* sessionStorage unavailable */
+      }
+    }
+  }, [analysisResult]);
+
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
@@ -189,6 +222,7 @@ export default function RestaurantVerifyPage() {
       if (selected) {
         setSelected(null);
         setDocTypes([]);
+        setAnalysisResult(null);
       }
       if (debounceRef.current) clearTimeout(debounceRef.current);
       if (value.trim().length < 2) {
@@ -205,17 +239,39 @@ export default function RestaurantVerifyPage() {
     [selected],
   );
 
+  useEffect(() => {
+    if (state?.success === true && state.restaurantId) {
+      router.push(`/login/restaurant/tags?restaurant_id=${state.restaurantId}`);
+    }
+  }, [state, router]);
+
   const handleSelect = useCallback(async (restaurant: Restaurant) => {
     setSelected(restaurant);
     setQuery(restaurant.name);
     setShowDropdown(false);
     setDocTypes([]);
+    setAnalysisResult(null);
+    setAnalysisLoading(true);
+
+    // Load docs and trigger AI analysis in parallel
     if (restaurant.country_id) {
       setLoadingDocs(true);
-      const docs = await getDocumentTypesAction(restaurant.country_id);
-      setDocTypes(docs);
-      setLoadingDocs(false);
+      getDocumentTypesAction(restaurant.country_id).then((docs) => {
+        setDocTypes(docs);
+        setLoadingDocs(false);
+      });
     }
+
+    const fd = new FormData();
+    fd.set("texte", restaurant.name);
+    analyse(fd)
+      .then((result) =>
+        setAnalysisResult(result.reco_traits as Record<string, unknown>),
+      )
+      .catch(() => {
+        /* silently ignore – tags page will show empty */
+      })
+      .finally(() => setAnalysisLoading(false));
   }, []);
 
   const handleClear = useCallback(() => {
@@ -223,6 +279,7 @@ export default function RestaurantVerifyPage() {
     setQuery("");
     setDocTypes([]);
     setResults([]);
+    setAnalysisResult(null);
   }, []);
 
   return (
@@ -263,11 +320,9 @@ export default function RestaurantVerifyPage() {
               {state.message}
             </div>
           )}
-
           {selected && (
             <input type="hidden" name="restaurant_id" value={selected.id} />
           )}
-
           {/* Restaurant search */}
           <div className="flex flex-col gap-1.5">
             <label className="text-white/70 text-xs font-medium tracking-wider uppercase">
@@ -342,7 +397,6 @@ export default function RestaurantVerifyPage() {
             )}
           </div>
 
-          {/* SIRET */}
           {selected && (
             <TextField
               id="siret"
@@ -355,7 +409,25 @@ export default function RestaurantVerifyPage() {
               error={state?.errors?.siret?.[0]}
             />
           )}
-
+          {/* AI analysis indicator */}
+          {selected && (
+            <div className="flex items-center gap-2 text-xs">
+              {analysisLoading ? (
+                <>
+                  <span className="animate-spin w-3 h-3 border border-white/20 border-t-michelin-red/60 rounded-full inline-block shrink-0" />
+                  <span className="text-white/30">Analyse IA en cours…</span>
+                </>
+              ) : analysisResult ? (
+                <>
+                  <Sparkles
+                    size={12}
+                    className="text-michelin-red/60 shrink-0"
+                  />
+                  <span className="text-white/30">Tags suggérés prêts</span>
+                </>
+              ) : null}
+            </div>
+          )}
           {/* Dynamic document fields */}
           {selected && (
             <>
@@ -386,7 +458,6 @@ export default function RestaurantVerifyPage() {
               )}
             </>
           )}
-
           <button
             type="submit"
             disabled={pending || !selected}

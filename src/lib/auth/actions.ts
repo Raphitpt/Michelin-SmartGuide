@@ -282,7 +282,7 @@ export async function completeRestaurantRegistrationAction(
     if (dt.required && (!file || file.size === 0)) {
       docErrors[dt.slug] = [`${dt.label} est requis.`];
     } else if (file && file.size > 0) {
-      if (!ALLOWED_MIME.includes(fileMime(file)))
+      if (!ALLOWED_MIME.includes(fileMime(file) ?? ""))
         docErrors[dt.slug] = ["Format non supporté (PDF, JPG, PNG, WEBP)."];
       else if (file.size > MAX_FILE_SIZE)
         docErrors[dt.slug] = ["Fichier trop volumineux (max 5 Mo)."];
@@ -337,10 +337,12 @@ export async function completeRestaurantRegistrationAction(
   for (const dt of docTypes ?? []) {
     const file = formData.get(dt.slug) as File | null;
     if (!file || file.size === 0) continue;
+    const mime = fileMime(file);
+    if (!mime) continue;
     const path = `${folder}/${dt.slug}.${fileExt(file)}`;
     const { error: uploadError } = await admin.storage
       .from(CLAIM_BUCKET)
-      .upload(path, file, { contentType: fileMime(file), upsert: false });
+      .upload(path, file, { contentType: mime, upsert: false });
     if (uploadError) {
       return {
         message: "Erreur lors de l'upload des documents. Veuillez réessayer.",
@@ -353,7 +355,7 @@ export async function completeRestaurantRegistrationAction(
       claim_id: claim.id,
       document_type_id: dt.id,
       file_url: urlData.publicUrl,
-      mime_type: fileMime(file),
+      mime_type: mime,
       file_size_kb: Math.round(file.size / 1024),
       status: "pending",
     });
@@ -405,10 +407,12 @@ function fileExt(file: File): string {
   return MIME_TO_EXT[file.type] ?? "bin";
 }
 
-function fileMime(file: File): string {
-  if (file.type) return file.type;
-  const ext = fileExt(file);
-  return EXT_TO_MIME[ext] ?? "application/octet-stream";
+function fileMime(file: File): string | null {
+  if (file.type && file.type !== "application/octet-stream") {
+    return file.type;
+  }
+  const ext = file.name?.split(".")?.pop()?.toLowerCase() ?? "";
+  return EXT_TO_MIME[ext] ?? null;
 }
 
 export async function submitClaimAction(
@@ -445,19 +449,13 @@ export async function submitClaimAction(
     return { message: "Le pays du restaurant est manquant." };
   }
 
-  // Check no existing claim
+  // Use existing claim if it was already created via startClaimAction, else create it
   const { data: existingClaim } = await supabase
     .from("ownership_claims")
     .select("id")
     .eq("user_id", user.id)
     .eq("restaurant_id", restaurant.id)
     .maybeSingle();
-
-  if (existingClaim) {
-    return {
-      message: "Une demande de revendication existe déjà pour ce restaurant.",
-    };
-  }
 
   // Load document types for this country to validate server-side
   const { data: docTypes } = await supabase
@@ -473,7 +471,7 @@ export async function submitClaimAction(
     if (dt.required && (!file || file.size === 0)) {
       docErrors[dt.slug] = [`${dt.label} est requis.`];
     } else if (file && file.size > 0) {
-      if (!ALLOWED_MIME.includes(fileMime(file)))
+      if (!ALLOWED_MIME.includes(fileMime(file) ?? ""))
         docErrors[dt.slug] = ["Format non supporté (PDF, JPG, PNG, WEBP)."];
       else if (file.size > MAX_FILE_SIZE)
         docErrors[dt.slug] = ["Fichier trop volumineux (max 5 Mo)."];
@@ -481,19 +479,23 @@ export async function submitClaimAction(
   }
   if (Object.keys(docErrors).length > 0) return { errors: { docs: docErrors } };
 
-  // Create ownership claim
-  const { data: claim, error: claimError } = await supabase
-    .from("ownership_claims")
-    .insert({
-      user_id: user.id,
-      restaurant_id: restaurant.id,
-      status: "pending",
-    })
-    .select("id")
-    .single();
-
-  if (claimError || !claim) {
-    return { message: "Erreur lors de la création de la demande." };
+  let claimId: string;
+  if (existingClaim) {
+    claimId = existingClaim.id;
+  } else {
+    const { data: newClaim, error: claimError } = await supabase
+      .from("ownership_claims")
+      .insert({
+        user_id: user.id,
+        restaurant_id: restaurant.id,
+        status: "pending",
+      })
+      .select("id")
+      .single();
+    if (claimError || !newClaim) {
+      return { message: "Erreur lors de la création de la demande." };
+    }
+    claimId = newClaim.id;
   }
 
   // Upload and save each document (admin client bypasses storage RLS)
@@ -511,19 +513,21 @@ export async function submitClaimAction(
     for (const dt of docTypes ?? []) {
       const file = formData.get(dt.slug) as File | null;
       if (!file || file.size === 0) continue;
+      const mime = fileMime(file);
+      if (!mime) continue;
       const path = `${folder}/${dt.slug}.${fileExt(file)}`;
       const { error } = await adminForUpload.storage
         .from(CLAIM_BUCKET)
-        .upload(path, file, { contentType: fileMime(file), upsert: false });
+        .upload(path, file, { contentType: mime, upsert: false });
       if (error) throw error;
       const { data: urlData } = adminForUpload.storage
         .from(CLAIM_BUCKET)
         .getPublicUrl(path);
       await adminForUpload.from("claim_documents").insert({
-        claim_id: claim.id,
+        claim_id: claimId,
         document_type_id: dt.id,
         file_url: urlData.publicUrl,
-        mime_type: fileMime(file),
+        mime_type: mime,
         file_size_kb: Math.round(file.size / 1024),
         status: "pending",
       });
@@ -533,6 +537,136 @@ export async function submitClaimAction(
     return {
       message: "Erreur lors de l'upload des documents. Veuillez réessayer.",
     };
+  }
+
+  return { success: true, restaurantId: validated.data.restaurant_id };
+}
+
+// ─── Get restaurant by id (for verify page pre-selection) ────────────────────
+
+export async function getRestaurantByIdAction(restaurantId: string): Promise<{
+  id: string;
+  name: string;
+  city: string | null;
+  country_id: string | null;
+} | null> {
+  const cookieStore = await cookies();
+  const supabase = createClient(cookieStore);
+  const { data } = await supabase
+    .from("restaurants")
+    .select("id, name, city, country_id")
+    .eq("id", restaurantId)
+    .single();
+  return data ?? null;
+}
+
+// ─── Start claim from restaurant page (creates claim + saves tags) ────────────
+
+export async function startClaimAction(
+  restaurantId: string,
+  traitCodes: string[],
+): Promise<{ error: string } | void> {
+  const cookieStore = await cookies();
+  const supabase = createClient(cookieStore);
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { error: "Vous devez être connecté." };
+
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("role")
+    .eq("id", user.id)
+    .single();
+  if (profile?.role !== "chef")
+    return { error: "Accès réservé aux restaurateurs." };
+
+  const { data: restaurant } = await supabase
+    .from("restaurants")
+    .select("id, name")
+    .eq("id", restaurantId)
+    .single();
+  if (!restaurant) return { error: "Restaurant introuvable." };
+
+  // Check no existing claim already
+  const { data: existingClaim } = await supabase
+    .from("ownership_claims")
+    .select("id")
+    .eq("user_id", user.id)
+    .eq("restaurant_id", restaurantId)
+    .maybeSingle();
+  if (existingClaim)
+    return { error: "Vous avez déjà une demande pour ce restaurant." };
+
+  const admin = createAdminClient();
+
+  const { data: claim, error: claimError } = await admin
+    .from("ownership_claims")
+    .insert({
+      user_id: user.id,
+      restaurant_id: restaurantId,
+      status: "pending",
+    })
+    .select("id")
+    .single();
+  if (claimError || !claim)
+    return { error: "Erreur lors de la création de la demande." };
+
+  if (traitCodes.length > 0) {
+    await admin
+      .from("restaurant_traits")
+      .delete()
+      .eq("restaurant_id", restaurantId);
+    await admin.from("restaurant_traits").insert(
+      traitCodes.map((code) => ({
+        restaurant_id: restaurantId,
+        trait_code: code,
+      })),
+    );
+  }
+
+  redirect(`/login/restaurant/verify?restaurant_id=${restaurantId}`);
+}
+
+// ─── Save restaurant tags (chef tag confirmation after claim) ─────────────────
+
+export async function saveRestaurantTagsAction(
+  restaurantId: string,
+  traitCodes: string[],
+): Promise<{ error: string } | void> {
+  const cookieStore = await cookies();
+  const supabase = createClient(cookieStore);
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { error: "Vous devez être connecté." };
+
+  // Verify user has a claim for this restaurant
+  const { data: claim } = await supabase
+    .from("ownership_claims")
+    .select("id")
+    .eq("user_id", user.id)
+    .eq("restaurant_id", restaurantId)
+    .maybeSingle();
+
+  if (!claim) return { error: "Aucune demande trouvée pour ce restaurant." };
+
+  const admin = createAdminClient();
+
+  await admin
+    .from("restaurant_traits")
+    .delete()
+    .eq("restaurant_id", restaurantId);
+
+  if (traitCodes.length > 0) {
+    await admin.from("restaurant_traits").insert(
+      traitCodes.map((code) => ({
+        restaurant_id: restaurantId,
+        trait_code: code,
+      })),
+    );
   }
 
   redirect("/login/restaurant/status");
@@ -604,7 +738,7 @@ export async function uploadMissingDocsAction(
   for (const dt of docTypes) {
     const file = formData.get(`doc_${dt.id}`) as File | null;
     if (!file || file.size === 0) continue;
-    if (!ALLOWED_MIME.includes(fileMime(file)))
+    if (!ALLOWED_MIME.includes(fileMime(file) ?? ""))
       return {
         message: `Format invalide pour ${dt.label} (PDF, JPG, PNG, WEBP).`,
       };
@@ -619,10 +753,12 @@ export async function uploadMissingDocsAction(
 
   try {
     for (const { file, docTypeId, slug } of uploads) {
+      const mime = fileMime(file);
+      if (!mime) continue;
       const path = `${baseFolder}/${resubmitTag}_${slug}.${fileExt(file)}`;
       const { error: uploadError } = await adminForUpload.storage
         .from(CLAIM_BUCKET)
-        .upload(path, file, { contentType: fileMime(file), upsert: false });
+        .upload(path, file, { contentType: mime, upsert: false });
       if (uploadError) throw uploadError;
 
       const { data: urlData } = adminForUpload.storage
@@ -633,7 +769,7 @@ export async function uploadMissingDocsAction(
         claim_id: claimId,
         document_type_id: docTypeId,
         file_url: urlData.publicUrl,
-        mime_type: fileMime(file),
+        mime_type: mime,
         file_size_kb: Math.round(file.size / 1024),
         status: "pending",
       });

@@ -6,7 +6,7 @@ const AUTH_PATHS = ['/login']
 const PARCOURS_ROUTE = '/parcours-sensoriel'
 // Ces routes font partie du flux d'inscription restaurant et doivent rester
 // accessibles même quand l'utilisateur est connecté (chef en attente de vérification)
-const CHEF_FLOW_PATHS = ['/login/restaurant/verify', '/login/restaurant/status']
+const CHEF_FLOW_PATHS = ['/login/restaurant/verify', '/login/restaurant/status', '/login/restaurant/tags']
 
 function isAuthOnly(pathname: string) {
   return AUTH_PATHS.some((p) => pathname === p || pathname.startsWith(p + '/'))
