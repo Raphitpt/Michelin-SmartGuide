@@ -1,6 +1,7 @@
 // src/components/sensoriel/ResultScreen.tsx
 'use client'
 
+import React from 'react'
 import { motion } from 'framer-motion'
 import { useRouter } from 'next/navigation'
 import { fadeSlideUp, staggerContainer } from '@/lib/motion'
@@ -51,6 +52,69 @@ function buildPortrait(scores: DimensionScore[]): string {
 
   const sentence = parts.join(' ')
   return sentence.charAt(0).toUpperCase() + sentence.slice(1)
+}
+
+const DIMENSION_ICONS: Record<string, React.ReactNode> = {
+  // D1 — Cuisine du monde : globe
+  D1: (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="w-5 h-5">
+      <circle cx="12" cy="12" r="9"/>
+      <path d="M3.6 9h16.8M3.6 15h16.8"/>
+      <path d="M12 3c-2.5 2.5-3.5 5.5-3.5 9s1 6.5 3.5 9"/>
+      <path d="M12 3c2.5 2.5 3.5 5.5 3.5 9s-1 6.5-3.5 9"/>
+    </svg>
+  ),
+  // D2 — Produits d'exception : épi de blé
+  D2: (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="w-5 h-5">
+      <path d="M12 22V10"/>
+      <path d="M12 10c0 0-2-2-2-4a2 2 0 0 1 4 0c0 2-2 4-2 4z"/>
+      <path d="M9 14c-1.5 0-3-1-3-2.5S7 9 9 10"/>
+      <path d="M15 14c1.5 0 3-1 3-2.5S17 9 15 10"/>
+      <path d="M9 18c-1.5 0-3-1-3-2.5"/>
+      <path d="M15 18c1.5 0 3-1 3-2.5"/>
+    </svg>
+  ),
+  // D3 — Sensations (fumé, épicé) : flamme
+  D3: (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="w-5 h-5">
+      <path d="M12 2c0 4-4 6-4 10a4 4 0 0 0 8 0c0-4-4-6-4-10z"/>
+      <path d="M12 12c0 2-1.5 3-1.5 4.5a1.5 1.5 0 0 0 3 0C13.5 15 12 14 12 12z"/>
+    </svg>
+  ),
+  // D4 — Cadre & atmosphère : bougie
+  D4: (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="w-5 h-5">
+      <path d="M9 21h6"/>
+      <rect x="9" y="10" width="6" height="11" rx="1"/>
+      <path d="M12 10V7"/>
+      <path d="M12 7c0-2 2-3 2-4.5a2 2 0 0 0-4 0C10 4 12 5 12 7z"/>
+    </svg>
+  ),
+  // D5 — Valeurs (bio, local) : feuille
+  D5: (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="w-5 h-5">
+      <path d="M11 20A7 7 0 0 1 4 13c0-5 7-11 8-11s8 6 8 11a7 7 0 0 1-7 7h-2z"/>
+      <path d="M12 2v20"/>
+    </svg>
+  ),
+  // D6 — Budget : signe €
+  D6: (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="w-5 h-5">
+      <path d="M17 7.5A6 6 0 1 0 17 16.5"/>
+      <path d="M5 11h9"/>
+      <path d="M5 13h9"/>
+    </svg>
+  ),
+  // D7 — Type d'établissement : couvert
+  D7: (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="w-5 h-5">
+      <path d="M3 2v7c0 1.66 1.34 3 3 3s3-1.34 3-3V2"/>
+      <path d="M6 2v20"/>
+      <path d="M15 2v6a3 3 0 0 0 3 3v11"/>
+      <path d="M18 2v6"/>
+    </svg>
+  ),
 }
 
 const DIMENSION_META: Record<string, {
@@ -139,10 +203,15 @@ export default function ResultScreen({
     <div className="min-h-screen bg-[#f5f5f0] flex flex-col">
 
       {/* Header sombre */}
-      <div className="relative bg-[#191919] pb-10">
+      <div className="relative pb-16" style={{ background: '#191919' }}>
         <div
           className="absolute inset-0 pointer-events-none"
           style={{ background: 'linear-gradient(to top, rgba(186,11,47,0.5) 0%, transparent 60%)' }}
+        />
+        {/* Fondu vers le fond de page */}
+        <div
+          className="absolute bottom-0 left-0 right-0 h-16 pointer-events-none"
+          style={{ background: 'linear-gradient(to bottom, transparent, #f5f5f0)' }}
         />
 
         <div className="relative z-10 h-16 flex items-center px-6">
@@ -246,12 +315,12 @@ export default function ResultScreen({
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: 0.4 + i * 0.06, ease: 'easeOut' }}
                 >
-                  {/* Icône colorée */}
+                  {/* Icône */}
                   <div
-                    className="w-10 h-10 rounded-[10px] flex items-center justify-center flex-shrink-0 text-[20px]"
-                    style={{ background: meta.bg }}
+                    className="w-10 h-10 rounded-[10px] flex items-center justify-center flex-shrink-0"
+                    style={{ background: meta.bg, color: meta.color }}
                   >
-                    {meta.icon}
+                    {DIMENSION_ICONS[dim.id]}
                   </div>
 
                   {/* Texte */}

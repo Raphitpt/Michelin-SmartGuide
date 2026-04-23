@@ -1,7 +1,7 @@
 'use client'
 
 import { motion, AnimatePresence } from 'framer-motion'
-import { Heart, Share2, ChevronRight, Phone, Clock, Shirt, CheckCircle, ThumbsUp, ThumbsDown, ExternalLink, PhoneCall } from 'lucide-react'
+import { Heart, Share2, CheckCircle, ThumbsUp, ThumbsDown, ExternalLink, PhoneCall, Phone, Leaf } from 'lucide-react'
 import { useState } from 'react'
 import MichelinStar from '@/components/ui/MichelinStar'
 import BackButton from '@/components/ui/BackButton'
@@ -32,12 +32,6 @@ const DIMENSION_COLORS: Record<string, { bg: string; text: string }> = {
   D7: { bg: '#f1f5f9', text: '#334155' },
 }
 
-const INFO_ROWS = [
-  { icon: Clock, label: "Ouvert jusqu'à 23h", sub: "Aujourd'hui" },
-  { icon: Shirt, label: 'Tenue élégante',      sub: 'Recommandée' },
-  { icon: Phone, label: '01 82 82 10 30',      sub: 'Appeler' },
-]
-
 const itemTransition = { duration: 0.4, ease: 'easeOut' as const }
 
 export default function RestaurantDetailContent({ restaurant, traits = [] }: { restaurant: Restaurant; traits?: TraitInfo[] }) {
@@ -58,6 +52,14 @@ export default function RestaurantDetailContent({ restaurant, traits = [] }: { r
     setShowRating(false)
     await rateVisit(enjoyed)
   }
+
+  const description = restaurant.philosophy ?? restaurant.history ?? null
+
+  const badges: { label: string; icon?: React.ReactNode }[] = []
+  if (restaurant.green_star) badges.push({ label: 'Étoile verte Michelin', icon: <Leaf size={11} className="text-green-600" /> })
+  if (restaurant.good_menu)  badges.push({ label: 'Menu à bon prix' })
+  if (restaurant.take_away)  badges.push({ label: 'À emporter' })
+  if (restaurant.delivery)   badges.push({ label: 'Livraison' })
 
   return (
     <div className="flex flex-col pb-24">
@@ -89,6 +91,7 @@ export default function RestaurantDetailContent({ restaurant, traits = [] }: { r
         initial="hidden"
         animate="visible"
       >
+        {/* Badge Michelin */}
         {restaurant.michelin_awards && (
           <motion.div variants={fadeSlideUp} transition={itemTransition} className="self-start flex items-center gap-1.5 bg-michelin-black text-white text-xs font-medium px-3 py-1.5 rounded-full">
             {restaurant.michelin_awards.stars > 0 ? (
@@ -96,9 +99,7 @@ export default function RestaurantDetailContent({ restaurant, traits = [] }: { r
                 {Array.from({ length: restaurant.michelin_awards.stars }, (_, i) => (
                   <MichelinStar key={i} size={10} />
                 ))}
-                <span>
-                  {restaurant.michelin_awards.stars} étoile{restaurant.michelin_awards.stars > 1 ? 's' : ''}
-                </span>
+                <span>{restaurant.michelin_awards.stars} étoile{restaurant.michelin_awards.stars > 1 ? 's' : ''}</span>
               </>
             ) : (
               <span>{restaurant.michelin_awards.label}</span>
@@ -106,23 +107,32 @@ export default function RestaurantDetailContent({ restaurant, traits = [] }: { r
           </motion.div>
         )}
 
+        {/* Nom + localisation + prix */}
         <motion.div variants={fadeSlideUp} transition={itemTransition}>
           <h1 className="text-michelin-black font-bold text-3xl leading-tight">{restaurant.name}</h1>
           <p className="text-michelin-gray text-sm mt-1">
-            {restaurant.city} ·{' '}
-            {restaurant.price_categories?.price_avg_min_eur && restaurant.price_categories?.price_avg_max_eur
-              ? `(${restaurant.price_categories.price_avg_min_eur}–${restaurant.price_categories.price_avg_max_eur}€)`
-              : restaurant.price_categories?.price_avg_min_eur
-              ? `(dès ${restaurant.price_categories.price_avg_min_eur}€)`
-              : null}
+            {[
+              restaurant.city,
+              restaurant.area,
+              restaurant.price_categories?.price_avg_min_eur && restaurant.price_categories?.price_avg_max_eur
+                ? `${restaurant.price_categories.price_avg_min_eur}–${restaurant.price_categories.price_avg_max_eur}€`
+                : restaurant.price_categories?.price_avg_min_eur
+                ? `dès ${restaurant.price_categories.price_avg_min_eur}€`
+                : restaurant.price_avg_eur
+                ? `~${restaurant.price_avg_eur}€`
+                : null,
+            ].filter(Boolean).join(' · ')}
           </p>
         </motion.div>
 
-        <motion.p variants={fadeSlideUp} transition={itemTransition} className="text-michelin-black text-sm leading-relaxed">
-          Dans un hôtel particulier du 8<sup>e</sup>, le chef Christophe Pelé signe une cuisine précise et inspirée,
-          où chaque produit trouve sa juste place.
-        </motion.p>
+        {/* Description */}
+        {description && (
+          <motion.p variants={fadeSlideUp} transition={itemTransition} className="text-michelin-black text-sm leading-relaxed">
+            {description}
+          </motion.p>
+        )}
 
+        {/* Traits */}
         {traits.length > 0 && (
           <motion.div variants={fadeSlideUp} transition={itemTransition} className="flex flex-wrap gap-2">
             {traits.map(trait => {
@@ -140,20 +150,30 @@ export default function RestaurantDetailContent({ restaurant, traits = [] }: { r
           </motion.div>
         )}
 
-        <motion.div variants={fadeSlideUp} transition={itemTransition} className="flex flex-col divide-y divide-michelin-light-gray">
-          {INFO_ROWS.map(({ icon: Icon, label, sub }) => (
-            <button key={label} className="flex items-center justify-between py-4 hover:opacity-70 transition-opacity">
-              <div className="flex items-center gap-3">
-                <Icon size={18} className="text-michelin-black shrink-0" strokeWidth={1.5} />
-                <div className="text-left">
-                  <p className="text-michelin-black text-sm font-medium">{label}</p>
-                  <p className="text-michelin-gray text-xs">{sub}</p>
-                </div>
-              </div>
-              <ChevronRight size={16} className="text-michelin-gray shrink-0" />
-            </button>
-          ))}
-        </motion.div>
+        {/* Badges (étoile verte, bon menu, etc.) */}
+        {badges.length > 0 && (
+          <motion.div variants={fadeSlideUp} transition={itemTransition} className="flex flex-wrap gap-2">
+            {badges.map(b => (
+              <span key={b.label} className="flex items-center gap-1 text-[12px] font-medium px-3 py-1.5 rounded-full bg-[#f0fdf4] text-green-700">
+                {b.icon}
+                {b.label}
+              </span>
+            ))}
+          </motion.div>
+        )}
+
+        {/* Infos pratiques */}
+        {restaurant.phone && (
+          <motion.div variants={fadeSlideUp} transition={itemTransition} className="flex flex-col divide-y divide-michelin-light-gray">
+            <a
+              href={`tel:${restaurant.phone}`}
+              className="flex items-center gap-3 py-4 hover:opacity-70 transition-opacity"
+            >
+              <Phone size={18} className="text-michelin-black shrink-0" strokeWidth={1.5} />
+              <p className="text-michelin-black text-sm font-medium">{restaurant.phone}</p>
+            </a>
+          </motion.div>
+        )}
 
         {/* Réservation */}
         <motion.div variants={fadeSlideUp} transition={itemTransition}>
@@ -168,7 +188,7 @@ export default function RestaurantDetailContent({ restaurant, traits = [] }: { r
                 <p className="font-semibold text-[15px]">Réserver une table</p>
                 <p className="text-white/50 text-[12px] mt-0.5">Réservation en ligne disponible</p>
               </div>
-              <ExternalLink size={18} className="text-white/60 flex-shrink-0" strokeWidth={1.5} />
+              <ExternalLink size={18} className="text-white/60 shrink-0" strokeWidth={1.5} />
             </a>
           ) : restaurant.phone ? (
             <a
@@ -179,7 +199,7 @@ export default function RestaurantDetailContent({ restaurant, traits = [] }: { r
                 <p className="font-semibold text-[15px]">Réserver une table</p>
                 <p className="text-white/50 text-[12px] mt-0.5">{restaurant.phone}</p>
               </div>
-              <PhoneCall size={18} className="text-white/60 flex-shrink-0" strokeWidth={1.5} />
+              <PhoneCall size={18} className="text-white/60 shrink-0" strokeWidth={1.5} />
             </a>
           ) : null}
         </motion.div>
@@ -196,7 +216,7 @@ export default function RestaurantDetailContent({ restaurant, traits = [] }: { r
           >
             <CheckCircle size={16} strokeWidth={1.5} />
             {visited
-              ? rated === true ? 'Visité · J\'ai adoré ♥' : rated === false ? 'Visité · Pas mon style' : 'Visité !'
+              ? rated === true ? "Visité · J'ai adoré ♥" : rated === false ? 'Visité · Pas mon style' : 'Visité !'
               : "J'ai visité ce restaurant"}
           </button>
 
@@ -234,7 +254,6 @@ export default function RestaurantDetailContent({ restaurant, traits = [] }: { r
           </AnimatePresence>
         </motion.div>
       </motion.div>
-
     </div>
   )
 }

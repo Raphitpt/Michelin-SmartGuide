@@ -12,12 +12,15 @@ export type RestaurantForSwipe = {
   name: string
   city: string | null
   main_image: string | null
+  images: string[]
   michelin_award_id: string | null
   michelin_stars: number
   michelin_label: string | null
   trait_codes: string[]
   traits: TraitInfo[]
   cuisine_style_label: string | null
+  price_category_id: string | null
+  price_categories: { price_avg_min_eur: string; price_avg_max_eur: string }[]
 }
 
 export async function fetchRestaurantsForSwipe(): Promise<RestaurantForSwipe[]> {
@@ -43,7 +46,7 @@ export async function fetchRestaurantsForSwipe(): Promise<RestaurantForSwipe[]> 
   const [{ data: restaurants, error }, { data: recoTraits, error: recoTraitsError }] = await Promise.all([
     supabase
       .from('restaurants')
-      .select('id, name, city, main_image, michelin_award_id, michelin_awards(stars, label)')
+      .select('id, name, city, main_image, michelin_award_id, michelin_awards(stars, label), price_category_id, price_categories!restaurants_price_category_id_fkey(price_avg_min_eur, price_avg_max_eur), restaurant_images(url, position)')
       .in('id', restaurantIds)
       .eq('is_published', true)
       .limit(15),
@@ -83,12 +86,25 @@ export async function fetchRestaurantsForSwipe(): Promise<RestaurantForSwipe[]> 
       name: r.name,
       city: r.city,
       main_image: r.main_image,
+      images: (() => {
+        const extra = (r as unknown as { restaurant_images: { url: string; position: number }[] | null }).restaurant_images
+        const sorted = Array.isArray(extra) ? [...extra].sort((a, b) => a.position - b.position).map(i => i.url) : []
+        const all = r.main_image ? [r.main_image, ...sorted.filter(u => u !== r.main_image)] : sorted
+        return all.slice(0, 3)
+      })(),
       michelin_award_id: r.michelin_award_id,
       michelin_stars: award?.stars ?? 0,
       michelin_label: award?.stars === 0 ? (award?.label ?? null) : null,
       trait_codes: codes,
       traits,
       cuisine_style_label: pickCuisineStyleLabel(codes),
+      price_category_id: r.price_category_id,
+      price_categories: (() => {
+        const pc = r.price_categories as unknown
+        if (!pc) return []
+        if (Array.isArray(pc)) return pc as { price_avg_min_eur: string; price_avg_max_eur: string }[]
+        return [pc as { price_avg_min_eur: string; price_avg_max_eur: string }]
+      })(),
     }
   })
 }
@@ -146,8 +162,7 @@ export async function fetchMatchRestaurant(
   if (!weights || weights.length === 0) return null
 
   const topCodes = weights.slice(0, 10).map(w => w.trait_code)
-
-  const { data: traitRows } = await supabase
+  const { data: traitRows, error: traitError } = await supabase
     .from('restaurant_traits')
     .select('restaurant_id')
     .in('trait_code', topCodes)
@@ -178,9 +193,11 @@ export async function fetchMatchRestaurant(
     }
   }
 
-  const candidateIds = nearbyIds
+  const nearbyFiltered = nearbyIds
     ? Object.keys(scoreMap).filter(id => nearbyIds!.has(id))
     : Object.keys(scoreMap)
+
+  const candidateIds = nearbyFiltered.length > 0 ? nearbyFiltered : Object.keys(scoreMap)
 
   if (candidateIds.length === 0) return null
 
