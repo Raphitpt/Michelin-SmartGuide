@@ -6,7 +6,7 @@ import { motion } from 'framer-motion'
 import Link from 'next/link'
 import { RECHERCHES_POPULAIRES, ROUTES } from '@/constants'
 import { createClient } from '@/utils/supabase/client'
-import MichelinStar from '@/components/MichelinStar'
+import MichelinStar from '@/components/ui/MichelinStar'
 import { Database } from '@/types/supabase'
 import { staggerContainer, fadeSlideUp } from '@/lib/motion'
 

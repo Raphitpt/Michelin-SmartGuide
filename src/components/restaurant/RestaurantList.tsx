@@ -1,5 +1,5 @@
 import { createAdminClient } from '@/utils/supabase/server'
-import RestaurantCard from '@/components/RestaurantCard'
+import RestaurantCard from '@/components/ui/RestaurantCard'
 
 export default async function RestaurantList() {
   const supabase = createAdminClient()

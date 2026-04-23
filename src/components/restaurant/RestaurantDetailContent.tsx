@@ -3,9 +3,9 @@
 import { motion, AnimatePresence } from 'framer-motion'
 import { Heart, Share2, ChevronRight, Phone, Clock, Shirt, CheckCircle, ThumbsUp, ThumbsDown, ExternalLink, PhoneCall } from 'lucide-react'
 import { useState } from 'react'
-import MichelinStar from '@/components/MichelinStar'
-import BackButton from '@/components/BackButton'
-import ImageSlider from '@/components/ImageSlider'
+import MichelinStar from '@/components/ui/MichelinStar'
+import BackButton from '@/components/ui/BackButton'
+import ImageSlider from '@/components/ui/ImageSlider'
 import { staggerContainerDetail, fadeSlideUp } from '@/lib/motion'
 import { Database } from '@/types/supabase'
 import { useAuth } from '@/context/AuthContext'
@@ -109,7 +109,7 @@ export default function RestaurantDetailContent({ restaurant, traits = [] }: { r
         <motion.div variants={fadeSlideUp} transition={itemTransition}>
           <h1 className="text-michelin-black font-bold text-3xl leading-tight">{restaurant.name}</h1>
           <p className="text-michelin-gray text-sm mt-1">
-            {restaurant.city} · Française moderne ·{' '}
+            {restaurant.city} ·{' '}
             {restaurant.price_categories?.price_avg_min_eur && restaurant.price_categories?.price_avg_max_eur
               ? `(${restaurant.price_categories.price_avg_min_eur}–${restaurant.price_categories.price_avg_max_eur}€)`
               : restaurant.price_categories?.price_avg_min_eur

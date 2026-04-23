@@ -1,5 +1,5 @@
 import { createAdminClient } from '@/utils/supabase/server'
-import RestaurantDetailContent from '@/components/RestaurantDetailContent'
+import RestaurantDetailContent from '@/components/restaurant/RestaurantDetailContent'
 
 export default async function RestaurantDetailPage({ id }: Readonly<{ id: string }>) {
   const supabase = createAdminClient()

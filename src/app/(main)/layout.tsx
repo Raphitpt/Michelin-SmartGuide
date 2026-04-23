@@ -1,4 +1,4 @@
-import BottomNav from '@/components/BottomNav'
+import BottomNav from '@/components/ui/BottomNav'
 
 export default function MainLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (

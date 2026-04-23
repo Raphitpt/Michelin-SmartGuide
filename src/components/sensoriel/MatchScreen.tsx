@@ -5,7 +5,7 @@ import { motion } from 'framer-motion'
 import { useRouter } from 'next/navigation'
 import { MapPin } from 'lucide-react'
 import { fadeSlideUp, staggerContainer } from '@/lib/motion'
-import MichelinStar from '@/components/MichelinStar'
+import MichelinStar from '@/components/ui/MichelinStar'
 import type { MatchRestaurant } from '@/lib/sensoriel/queries'
 
 type Props = {

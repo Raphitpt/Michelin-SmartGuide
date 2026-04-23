@@ -3,7 +3,7 @@
 import { useActionState, useState } from "react";
 import { ChevronLeft, Save, FileText, Globe } from "lucide-react";
 import Link from "next/link";
-import CustomEditor from "@/components/Editor";
+import CustomEditor from "@/components/editor/Editor";
 import { ROUTES } from "@/constants";
 import type { ArticleFormState } from "@/lib/articles/actions";
 

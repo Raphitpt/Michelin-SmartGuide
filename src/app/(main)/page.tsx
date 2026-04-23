@@ -1,5 +1,5 @@
-import HomePage from '@/components/HomePage'
-import PageTransition from '@/components/PageTransition'
+import HomePage from '@/components/pages/HomePage'
+import PageTransition from '@/components/ui/PageTransition'
 
 export default function Home() {
   return (

@@ -3,7 +3,7 @@
 
 import { motion, useMotionValue, useTransform } from 'framer-motion'
 import type { RestaurantForSwipe } from '@/lib/sensoriel/queries'
-import MichelinStar from '@/components/MichelinStar'
+import MichelinStar from '@/components/ui/MichelinStar'
 
 const SWIPE_THRESHOLD = 80
 

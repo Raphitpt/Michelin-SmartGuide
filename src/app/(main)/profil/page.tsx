@@ -1,5 +1,5 @@
-import ProfilePage from '@/components/ProfilePage'
-import PageTransition from '@/components/PageTransition'
+import ProfilePage from '@/components/pages/ProfilePage'
+import PageTransition from '@/components/ui/PageTransition'
 
 export default function Profil() {
   return (

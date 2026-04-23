@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 import { cookies } from "next/headers";
 import { createClient } from "@/utils/supabase/server";
-import ArticleEditor from "@/components/ArticleEditor";
+import ArticleEditor from "@/components/editor/ArticleEditor";
 import { createArticleAction } from "@/lib/articles/actions";
 import { ROUTES } from "@/constants";
 

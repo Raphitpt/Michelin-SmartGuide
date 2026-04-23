@@ -7,7 +7,7 @@ import { FILTRE_ACCUEIL, FiltreAccueil } from '@/constants'
 import { useGeolocation } from '@/hooks/useGeolocation'
 import { useAuth } from '@/context/AuthContext'
 import { useRestaurantActions } from '@/hooks/useRestaurantActions'
-import MichelinStar from '@/components/MichelinStar'
+import MichelinStar from '@/components/ui/MichelinStar'
 
 interface RestaurantCard {
   id: string
