@@ -105,6 +105,7 @@ export type ClaimState =
       }
       message?: string
       success?: boolean
+      restaurantId?: string
     }
   | undefined
 

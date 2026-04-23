@@ -5,6 +5,7 @@ import { analyse } from './analyse'
 
 export type Trait = {
   id: string
+  code: string
   label: string
 }
 
