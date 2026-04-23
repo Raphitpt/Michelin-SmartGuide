@@ -15,7 +15,7 @@ const TAG_STYLE: Record<TagValue, string> = {
 }
 
 interface FavoriteRestaurant {
-  swipeId: string
+  swipeId: string | null
   restaurantId: string
   name: string
   city: string | null
@@ -51,19 +51,35 @@ export default function FavoritesPage() {
       ])
 
       const visitedIds = new Set((visits ?? []).map((r) => r.restaurant_id))
+      // Tous les IDs uniques (likés + visités)
+      const allIds = new Set<string>([
+        ...(swipes ?? []).map((s) => s.restaurant_id),
+        ...visitedIds,
+      ])
 
-      const items: FavoriteRestaurant[] = (swipes ?? []).map((s) => {
+      const { data: restaurants } = await supabase
+        .from('restaurants')
+        .select('id, name, city, main_image, michelin_awards(stars)')
+        .in('id', [...allIds])
+
+      const restaurantMap = new Map((restaurants ?? []).map((r) => [r.id, r]))
+
+      // Construire la liste finale
+      const items: FavoriteRestaurant[] = [...allIds].map((id) => {
+        const r = restaurantMap.get(id)
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const r = s.restaurants as any
-        const stars: number = r?.michelin_awards?.stars ?? r?.michelin_awards?.[0]?.stars ?? 0
+        const rr = r as any
+        const stars: number = rr?.michelin_awards?.stars ?? rr?.michelin_awards?.[0]?.stars ?? 0
+        const isLiked = (swipes ?? []).some((s) => s.restaurant_id === id)
         return {
-          swipeId: s.id,
-          restaurantId: s.restaurant_id,
+          swipeId: (swipes ?? []).find((s) => s.restaurant_id === id)?.id ?? null,
+          restaurantId: id,
           name: r?.name ?? '',
           city: r?.city ?? null,
           main_image: r?.main_image ?? null,
           stars,
-          tag: visitedIds.has(s.restaurant_id) ? TAG.VISITE : TAG.A_ESSAYER,
+          tag: visitedIds.has(id) ? TAG.VISITE : TAG.A_ESSAYER,
+          isLiked,
         }
       })
 
@@ -78,6 +94,16 @@ export default function FavoritesPage() {
     setFavorites((prev) => prev.filter((f) => f.swipeId !== swipeId))
     const supabase = createClient()
     await supabase.from('user_swipes').update({ liked: false }).eq('id', swipeId)
+  }
+
+  async function removeVisited(restaurantId: string) {
+    setFavorites((prev) => prev.filter((f) => f.restaurantId !== restaurantId || f.swipeId !== null))
+    const supabase = createClient()
+    await supabase
+      .from('user_visited_restaurants')
+      .delete()
+      .eq('user_id', user!.id)
+      .eq('restaurant_id', restaurantId)
   }
 
   const filtered = favorites.filter((f) => {
@@ -126,13 +152,15 @@ export default function FavoritesPage() {
       )}
 
       {!loading && filtered.length === 0 && (
-        <p className="text-michelin-gray text-sm text-center mt-12">Aucun favori pour l'instant.</p>
+        <p className="text-michelin-gray text-sm text-center mt-12">
+          {activeFilter === FILTRE_FAVORIS.VISITES ? 'Aucun restaurant visité pour l\'instant.' : 'Aucun favori pour l\'instant.'}
+        </p>
       )}
 
       {!loading && (
         <div className="flex flex-col gap-3">
           {filtered.map((restaurant) => (
-            <div key={restaurant.swipeId} className="flex items-center gap-3 bg-white rounded-xl p-3">
+            <div key={restaurant.restaurantId} className="flex items-center gap-3 bg-white rounded-xl p-3">
               <Link href={`/restaurants/${restaurant.restaurantId}`} className="flex items-center gap-3 flex-1 min-w-0">
                 <div className="w-20 h-20 rounded-lg shrink-0 bg-gray-100 overflow-hidden">
                   {restaurant.main_image && (
@@ -143,7 +171,7 @@ export default function FavoritesPage() {
                 <div className="flex-1 min-w-0">
                   <div className="flex gap-0.5 mb-1">
                     {Array.from({ length: restaurant.stars }, (_, index) => (
-                      <Star key={`${restaurant.swipeId}-star-${index}`} size={10} fill="#E4002B" stroke="none" />
+                      <Star key={`${restaurant.restaurantId}-star-${index}`} size={10} fill="#E4002B" stroke="none" />
                     ))}
                   </div>
                   <p className="text-michelin-black font-semibold text-sm leading-snug truncate">{restaurant.name}</p>
@@ -155,7 +183,7 @@ export default function FavoritesPage() {
               </Link>
               <button
                 className="shrink-0 p-1"
-                onClick={() => removeFavorite(restaurant.swipeId)}
+                onClick={() => restaurant.swipeId ? removeFavorite(restaurant.swipeId) : removeVisited(restaurant.restaurantId)}
                 aria-label="Retirer des favoris"
               >
                 <Heart size={18} fill="#E4002B" stroke="none" />

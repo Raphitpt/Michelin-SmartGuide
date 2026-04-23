@@ -94,7 +94,10 @@ export default function MatchScreen({ archetypeName, restaurant, hasGeoloc, onRe
               )}
             </div>
 
-            <div className="p-4 flex flex-col gap-1.5">
+            <div
+              className="p-4 flex flex-col gap-1.5 cursor-pointer"
+              onClick={() => router.push(`/restaurants/${restaurant.id}`)}
+            >
               {starCount > 0 ? (
                 <div className="flex gap-0.5">
                   {Array.from({ length: starCount }, (_, i) => (
