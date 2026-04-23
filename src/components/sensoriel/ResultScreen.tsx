@@ -1,30 +1,114 @@
 // src/components/sensoriel/ResultScreen.tsx
 'use client'
 
-import { useState } from 'react'
-import { motion, AnimatePresence } from 'framer-motion'
+import { motion } from 'framer-motion'
 import { useRouter } from 'next/navigation'
 import { fadeSlideUp, staggerContainer } from '@/lib/motion'
 import type { DimensionScore } from '@/app/(sensoriel)/parcours-sensoriel/page'
 
-const DIMENSION_HINTS: Record<string, { high: string; low: string }> = {
-  D1: { high: 'Vous aimez explorer des origines culinaires variées', low: 'Vous préférez vous en tenir à quelques cuisines bien maîtrisées' },
-  D2: { high: 'Certains ingrédients sont au cœur de vos préférences', low: 'Vous êtes ouvert à tout type de produit' },
-  D3: { high: 'Vous avez des sensations en bouche très marquées (fumé, iodé, épicé…)', low: 'Vous appréciez des profils gustatifs plus discrets' },
-  D4: { high: 'Le cadre et l\'occasion comptent autant que l\'assiette', low: 'Vous mangez bien partout, peu importe le contexte' },
-  D5: { high: 'L\'engagement du restaurant (bio, local, naturel) influence vos choix', low: 'Vous privilégiez l\'expérience gustative avant tout' },
-  D6: { high: 'Vous investissez volontiers dans une belle expérience gastronomique', low: 'Vous cherchez la qualité au meilleur rapport qualité/prix' },
-  D7: { high: 'Vous avez un type d\'établissement de prédilection', low: 'Vous aimez varier les formats (bistro, gastro, street food…)' },
+function buildPortrait(scores: DimensionScore[]): string {
+  const strong = scores.filter(d => d.score >= 55).slice(0, 3)
+  const weak = scores.filter(d => d.score < 45).slice(0, 2)
+
+  const STRONG_PHRASES: Record<string, string> = {
+    D1: 'vous aimez explorer les cuisines du monde sans frontières',
+    D2: 'vous accordez une place centrale aux produits d\'exception',
+    D3: 'vous cherchez des sensations fortes en bouche — fumé, iodé, épicé',
+    D4: 'le cadre et l\'atmosphère font partie intégrante de votre repas',
+    D5: 'les engagements du restaurant — bio, local, naturel — guident vos choix',
+    D6: 'vous investissez volontiers dans une belle expérience gastronomique',
+    D7: 'vous avez votre type d\'établissement de prédilection',
+  }
+
+  const WEAK_PHRASES: Record<string, string> = {
+    D1: 'vous restez fidèle à quelques cuisines bien maîtrisées',
+    D2: 'vous êtes ouvert à tous les ingrédients sans contrainte',
+    D3: 'vous préférez des profils gustatifs subtils et équilibrés',
+    D4: 'vous savez apprécier un bon repas peu importe le décor',
+    D5: 'vous mettez l\'expérience gustative au-dessus de tout le reste',
+    D6: 'vous savez trouver l\'excellence sans vous ruiner',
+    D7: 'vous aimez varier les formats selon votre humeur',
+  }
+
+  const parts: string[] = []
+
+  if (strong.length === 0 && weak.length === 0) {
+    return 'Votre profil est encore en cours de calibration. Plus vous explorez, plus il s\'affine.'
+  }
+
+  if (strong.length > 0) {
+    const phrases = strong.map(d => STRONG_PHRASES[d.id]).filter(Boolean)
+    if (phrases.length === 1) parts.push(`Avant tout, ${phrases[0]}.`)
+    else if (phrases.length === 2) parts.push(`Avant tout, ${phrases[0]}, et ${phrases[1]}.`)
+    else parts.push(`Avant tout, ${phrases[0]}, ${phrases[1]}, et ${phrases[2]}.`)
+  }
+
+  if (weak.length > 0) {
+    const phrases = weak.map(d => WEAK_PHRASES[d.id]).filter(Boolean)
+    if (phrases.length === 1) parts.push(`Par ailleurs, ${phrases[0]}.`)
+    else parts.push(`Par ailleurs, ${phrases[0]}, et ${phrases[1]}.`)
+  }
+
+  const sentence = parts.join(' ')
+  return sentence.charAt(0).toUpperCase() + sentence.slice(1)
 }
 
-const DIMENSION_COLORS: Record<string, string> = {
-  D1: '#f59e0b', // cuisine — ambre
-  D2: '#ec4899', // produits — rose
-  D3: '#0ea5e9', // sensoriel — bleu
-  D4: '#22c55e', // contexte — vert
-  D5: '#a855f7', // valeurs — violet
-  D6: '#f97316', // budget — orange
-  D7: '#94a3b8', // catégorie — gris
+const DIMENSION_META: Record<string, {
+  icon: string
+  color: string
+  bg: string
+  high: string
+  low: string
+}> = {
+  D1: {
+    icon: '🌍',
+    color: '#f59e0b',
+    bg: '#fffbeb',
+    high: 'Curieux des cuisines du monde',
+    low: 'Fidèle à quelques cuisines maîtrisées',
+  },
+  D2: {
+    icon: '🫐',
+    color: '#ec4899',
+    bg: '#fdf2f8',
+    high: 'Attaché à des produits d\'exception',
+    low: 'Ouvert à tous les ingrédients',
+  },
+  D3: {
+    icon: '🌶️',
+    color: '#0ea5e9',
+    bg: '#f0f9ff',
+    high: 'Sensations fortes : fumé, iodé, épicé',
+    low: 'Préfère des profils gustatifs discrets',
+  },
+  D4: {
+    icon: '🕯️',
+    color: '#22c55e',
+    bg: '#f0fdf4',
+    high: 'Le cadre compte autant que l\'assiette',
+    low: 'Mange bien partout, peu importe le décor',
+  },
+  D5: {
+    icon: '🌱',
+    color: '#a855f7',
+    bg: '#faf5ff',
+    high: 'Sensible au bio, local et naturel',
+    low: 'L\'expérience gustative avant tout',
+  },
+  D6: {
+    icon: '💎',
+    color: '#f97316',
+    bg: '#fff7ed',
+    high: 'Investit volontiers dans le gastronomique',
+    low: 'Cherche la qualité au meilleur prix',
+  },
+  D7: {
+    icon: '🏛️',
+    color: '#64748b',
+    bg: '#f8fafc',
+    high: 'A un type d\'établissement favori',
+    low: 'Aime varier : bistro, gastro, street food…',
+  },
 }
 
 type Props = {
@@ -33,6 +117,8 @@ type Props = {
   scorePct: number
   topTags: string[]
   dimensionScores: DimensionScore[]
+  onContinue?: () => void
+  hasMatch?: boolean
 }
 
 export default function ResultScreen({
@@ -41,21 +127,28 @@ export default function ResultScreen({
   scorePct,
   topTags,
   dimensionScores,
+  onContinue,
+  hasMatch,
 }: Props) {
   const router = useRouter()
-  const [activeTooltip, setActiveTooltip] = useState<string | null>(null)
 
   const isBlankProfile = scorePct === 0 && dimensionScores.length === 0
+  const portrait = isBlankProfile ? null : buildPortrait(dimensionScores)
 
   return (
     <div className="min-h-screen bg-[#f5f5f0] flex flex-col">
-      <div className="relative bg-[#191919] pb-8">
-        <div className="absolute inset-0 bg-gradient-to-t from-[rgba(186,11,47,0.6)] to-transparent pointer-events-none" />
 
-        <div className="relative z-10 h-20 flex items-center px-8">
-          <div className="flex gap-1 items-center text-[18px]">
-            <span className="font-bold text-[#ba0b2f]">MICHELIN</span>
-            <span className="font-normal text-white"> GUIDE</span>
+      {/* Header sombre */}
+      <div className="relative bg-[#191919] pb-10">
+        <div
+          className="absolute inset-0 pointer-events-none"
+          style={{ background: 'linear-gradient(to top, rgba(186,11,47,0.5) 0%, transparent 60%)' }}
+        />
+
+        <div className="relative z-10 h-16 flex items-center px-6">
+          <div className="flex gap-1 items-center text-[16px]">
+            <span className="font-bold text-[#ba0b2f] tracking-wide">MICHELIN</span>
+            <span className="font-light text-white/60"> GUIDE</span>
           </div>
         </div>
 
@@ -67,128 +160,124 @@ export default function ResultScreen({
         >
           <motion.p
             variants={fadeSlideUp}
-            className="text-white/60 text-[13px] tracking-[1.3px] mb-2"
+            className="text-white/40 text-[11px] tracking-[2px] uppercase mb-3"
           >
-            VOTRE PROFIL GASTRONOMIQUE
+            Votre profil gastronomique
           </motion.p>
 
           {isBlankProfile ? (
             <motion.div variants={fadeSlideUp}>
-              <h1 className="text-white font-bold text-[28px] leading-[1.2]">
+              <h1 className="text-white font-semibold text-[28px] leading-[1.2]">
                 Difficile à cerner…
               </h1>
-              <p className="text-white/75 text-[14px] leading-[1.5] mt-3">
-                Vous avez rejeté tous les restaurants — votre palais reste un mystère. Explorez l&apos;application et affinez votre profil en ajoutant des favoris.
+              <p className="text-white/60 text-[14px] leading-[1.6] mt-3">
+                Vous avez rejeté tous les restaurants — votre palais reste un mystère. Explorez l&apos;application et affinez votre profil.
               </p>
             </motion.div>
           ) : (
             <>
-              <div className="flex items-start justify-between gap-4">
-                <motion.h1
-                  variants={fadeSlideUp}
-                  className="text-white font-bold text-[34px] leading-[1.1] flex-1"
-                >
-                  {archetypeName}
-                </motion.h1>
-                <motion.div
-                  variants={fadeSlideUp}
-                  className="bg-[#ba0b2f] rounded-[18px] px-3 py-1 flex items-center justify-center flex-shrink-0"
-                >
-                  <span className="text-white font-bold text-[16px]">{scorePct}%</span>
-                </motion.div>
-              </div>
+              <motion.h1
+                variants={fadeSlideUp}
+                className="text-white font-bold text-[36px] leading-[1.1] mb-3"
+              >
+                {archetypeName}
+              </motion.h1>
 
               <motion.p
                 variants={fadeSlideUp}
-                className="text-white/75 text-[14px] leading-[1.5] mt-3 mb-4"
+                className="text-white/65 text-[14px] leading-[1.65] mb-4"
               >
                 {archetypeDescription}
               </motion.p>
 
-              <motion.div variants={fadeSlideUp} className="flex gap-2 flex-wrap">
-                {topTags.map(tag => (
-                  <span
-                    key={tag}
-                    className="bg-[#ba0b2f] text-white text-[13px] font-medium px-3 py-1.5 rounded-full"
-                  >
-                    {tag}
-                  </span>
-                ))}
-              </motion.div>
+              {portrait && (
+                <motion.div
+                  variants={fadeSlideUp}
+                  className="rounded-[12px] px-4 py-3 mb-5"
+                  style={{ background: 'rgba(255,255,255,0.07)', backdropFilter: 'blur(8px)' }}
+                >
+                  <p className="text-white/40 text-[10px] tracking-[1.8px] uppercase mb-1.5">En résumé</p>
+                  <p className="text-white/85 text-[13px] leading-[1.65]">{portrait}</p>
+                </motion.div>
+              )}
+
+              {topTags.length > 0 && (
+                <motion.div variants={fadeSlideUp} className="flex gap-2 flex-wrap">
+                  {topTags.map(tag => (
+                    <span
+                      key={tag}
+                      className="text-white/80 text-[12px] font-medium px-3 py-1.5 rounded-full"
+                      style={{ background: 'rgba(255,255,255,0.1)', backdropFilter: 'blur(8px)' }}
+                    >
+                      {tag}
+                    </span>
+                  ))}
+                </motion.div>
+              )}
             </>
           )}
         </motion.div>
       </div>
 
+      {/* Corps */}
       <motion.div
-        className="px-6 pt-6 pb-10 flex flex-col gap-5"
-        initial={{ opacity: 0, y: 16 }}
+        className="px-4 pt-5 pb-10 flex flex-col gap-3"
+        initial={{ opacity: 0, y: 12 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.4 }}
+        transition={{ delay: 0.35 }}
       >
         {!isBlankProfile && dimensionScores.length > 0 && (
-          <div className="bg-white rounded-[12px] p-5 flex flex-col gap-4">
-            <p className="text-[#191919] font-semibold text-[14px] tracking-[0.5px]">POURQUOI CE PROFIL</p>
-            {dimensionScores.map((dim, i) => (
-              <motion.div
-                key={dim.id}
-                className="flex flex-col gap-1.5"
-                initial={{ opacity: 0, x: -8 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ delay: 0.5 + i * 0.07 }}
-              >
-                <div className="flex justify-between items-center gap-2">
-                  <div className="flex items-center gap-1.5 min-w-0">
-                    <p className="text-[#555] text-[12px] truncate">{dim.nom}</p>
-                    <button
-                      onClick={() => setActiveTooltip(activeTooltip === dim.id ? null : dim.id)}
-                      className="flex-shrink-0 w-4 h-4 rounded-full bg-[#e8e8e3] text-[#888] text-[10px] flex items-center justify-center"
-                    >
-                      i
-                    </button>
+          <>
+            <p className="text-[#888] text-[11px] tracking-[1.5px] uppercase px-2 mb-1">
+              Ce qui vous définit
+            </p>
+
+            {dimensionScores.map((dim, i) => {
+              const meta = DIMENSION_META[dim.id]
+              if (!meta) return null
+              const isStrong = dim.score >= 50
+              const phrase = isStrong ? meta.high : meta.low
+
+              return (
+                <motion.div
+                  key={dim.id}
+                  className="bg-white rounded-[14px] px-4 py-4 flex items-center gap-4"
+                  initial={{ opacity: 0, y: 8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.4 + i * 0.06, ease: 'easeOut' }}
+                >
+                  {/* Icône colorée */}
+                  <div
+                    className="w-10 h-10 rounded-[10px] flex items-center justify-center flex-shrink-0 text-[20px]"
+                    style={{ background: meta.bg }}
+                  >
+                    {meta.icon}
                   </div>
-                  <p className="text-[#191919] font-semibold text-[12px] flex-shrink-0">{dim.score}%</p>
-                </div>
-                <AnimatePresence>
-                  {activeTooltip === dim.id && (
-                    <motion.div
-                      initial={{ opacity: 0, height: 0 }}
-                      animate={{ opacity: 1, height: 'auto' }}
-                      exit={{ opacity: 0, height: 0 }}
-                      className="overflow-hidden"
-                    >
-                      <p className="text-[11px] text-[#888] leading-[1.4] mb-1">{dim.question}</p>
-                      <p className="text-[11px] leading-[1.4]">
-                        <span className="text-[#22c55e] font-medium">↑ Élevé : </span>
-                        <span className="text-[#555]">{DIMENSION_HINTS[dim.id]?.high}</span>
-                      </p>
-                      <p className="text-[11px] leading-[1.4] mt-0.5">
-                        <span className="text-[#94a3b8] font-medium">↓ Faible : </span>
-                        <span className="text-[#555]">{DIMENSION_HINTS[dim.id]?.low}</span>
-                      </p>
-                    </motion.div>
-                  )}
-                </AnimatePresence>
-                <div className="h-[6px] bg-[#f0f0eb] rounded-full overflow-hidden">
-                  <motion.div
-                    className="h-full rounded-full"
-                    style={{ backgroundColor: DIMENSION_COLORS[dim.id] ?? '#ba0b2f' }}
-                    initial={{ width: 0 }}
-                    animate={{ width: `${dim.score}%` }}
-                    transition={{ delay: 0.55 + i * 0.07, duration: 0.5, ease: 'easeOut' }}
-                  />
-                </div>
-              </motion.div>
-            ))}
-          </div>
+
+                  {/* Texte */}
+                  <div className="flex-1 min-w-0">
+                    <p className="text-[#aaa] text-[10px] tracking-[1px] uppercase mb-1">
+                      {dim.nom}
+                    </p>
+                    <p className="text-[#191919] font-medium text-[14px] leading-[1.35]">
+                      {phrase}
+                    </p>
+                  </div>
+                </motion.div>
+              )
+            })}
+          </>
         )}
 
-        <button
-          onClick={() => router.push('/')}
-          className="w-full bg-[#ba0b2f] text-white font-medium text-[16px] h-[52px] rounded-[4px] flex items-center justify-center active:opacity-90 transition-opacity"
+        <motion.button
+          onClick={hasMatch && onContinue ? onContinue : () => router.push('/')}
+          className="mt-2 w-full bg-[#ba0b2f] text-white font-medium text-[15px] h-[52px] rounded-[6px] flex items-center justify-center active:opacity-90 transition-opacity"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ delay: 0.5 + dimensionScores.length * 0.06 }}
         >
-          Explorer mes restaurants
-        </button>
+          {hasMatch && onContinue ? 'Voir mon restaurant coup de cœur' : 'Explorer mes restaurants'}
+        </motion.button>
       </motion.div>
     </div>
   )

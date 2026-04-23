@@ -1,18 +1,19 @@
 // src/app/(sensoriel)/parcours-sensoriel/page.tsx
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useAuth } from '@/context/AuthContext'
 import { useRouter } from 'next/navigation'
 import IntroScreen from '@/components/sensoriel/IntroScreen'
 import SwiperScreen from '@/components/sensoriel/SwiperScreen'
 import ResultScreen from '@/components/sensoriel/ResultScreen'
-import { fetchRestaurantsForSwipe, fetchArchetypesAndWeights } from '@/lib/sensoriel/queries'
+import MatchScreen from '@/components/sensoriel/MatchScreen'
+import { fetchRestaurantsForSwipe, fetchArchetypesAndWeights, fetchMatchRestaurant } from '@/lib/sensoriel/queries'
 import { buildScoreVector, computeArchetypeScores, pickBestArchetype, getTopTags } from '@/lib/sensoriel/scoring'
 import { createSwipeSession, saveSwipe, saveTasteProfile } from '@/lib/sensoriel/actions'
-import type { RestaurantForSwipe } from '@/lib/sensoriel/queries'
+import type { RestaurantForSwipe, MatchRestaurant } from '@/lib/sensoriel/queries'
 
-type Step = 'intro' | 'swipe' | 'result'
+type Step = 'intro' | 'swipe' | 'result' | 'match'
 
 type SwipeRecord = {
   restaurantId: string
@@ -30,6 +31,7 @@ export type DimensionScore = {
 type ResultData = {
   archetypeName: string
   archetypeDescription: string
+  archetypeId: string | null
   scorePct: number
   topTags: string[]
   dimensionScores: DimensionScore[]
@@ -38,11 +40,14 @@ type ResultData = {
 const DEFAULT_RESULT: ResultData = {
   archetypeName: 'Profil en cours de calibration',
   archetypeDescription:
-    'Nous avons besoin d’un peu plus de données pour affiner votre profil. Continuez à explorer pour obtenir une recommandation plus précise.',
+    "Nous avons besoin d’un peu plus de données pour affiner votre profil. Continuez à explorer pour obtenir une recommandation plus précise.",
+  archetypeId: null,
   scorePct: 0,
   topTags: [],
   dimensionScores: [],
 }
+
+type Coords = { lat: number; lng: number }
 
 export default function ParcoursSensorielPage() {
   const { user } = useAuth()
@@ -51,6 +56,9 @@ export default function ParcoursSensorielPage() {
   const [restaurants, setRestaurants] = useState<RestaurantForSwipe[]>([])
   const [result, setResult] = useState<ResultData | null>(null)
   const [sessionId, setSessionId] = useState<string | null>(null)
+  const [matchRestaurant, setMatchRestaurant] = useState<MatchRestaurant | null>(null)
+  const [coords, setCoords] = useState<Coords | null>(null)
+  const [hasGeoloc, setHasGeoloc] = useState(false)
 
   useEffect(() => {
     fetchRestaurantsForSwipe().then(data => {
@@ -58,6 +66,22 @@ export default function ParcoursSensorielPage() {
       setRestaurants(shuffled)
     })
   }, [])
+
+  const requestGeoloc = useCallback(() => {
+    navigator.geolocation.getCurrentPosition(
+      pos => {
+        const c = { lat: pos.coords.latitude, lng: pos.coords.longitude }
+        setCoords(c)
+        setHasGeoloc(true)
+        if (result?.archetypeId) {
+          fetchMatchRestaurant(result.archetypeId, c).then(setMatchRestaurant)
+        }
+      },
+      () => {
+        setHasGeoloc(false)
+      },
+    )
+  }, [result?.archetypeId])
 
   async function handleStart() {
     if (!user) {
@@ -127,20 +151,59 @@ export default function ParcoursSensorielPage() {
       }
     }
 
-    if (!archetype) {
-      setResult(DEFAULT_RESULT)
-      setStep('result')
+    const resultData: ResultData = archetype
+      ? {
+          archetypeName: archetype.nom,
+          archetypeDescription: archetype.description,
+          archetypeId: archetype.id,
+          scorePct,
+          topTags,
+          dimensionScores,
+        }
+      : DEFAULT_RESULT
+
+    setResult(resultData)
+    setStep('result')
+  }
+
+  async function handleGoToMatch() {
+    if (!result?.archetypeId) {
+      router.push('/')
       return
     }
 
-    setResult({
-      archetypeName: archetype.nom,
-      archetypeDescription: archetype.description,
-      scorePct,
-      topTags,
-      dimensionScores,
+    const archetypeId = result.archetypeId
+
+    const loadMatch = async (c?: { lat: number; lng: number }) => {
+      const match = await fetchMatchRestaurant(archetypeId, c)
+      setMatchRestaurant(match)
+      setStep('match')
+    }
+
+    if (!navigator.geolocation) {
+      await loadMatch()
+      return
+    }
+
+    await new Promise<void>(resolve => {
+      const timer = setTimeout(() => resolve(), 3000)
+      navigator.geolocation.getCurrentPosition(
+        async pos => {
+          clearTimeout(timer)
+          const c = { lat: pos.coords.latitude, lng: pos.coords.longitude }
+          setCoords(c)
+          setHasGeoloc(true)
+          await loadMatch(c)
+          resolve()
+        },
+        async () => {
+          clearTimeout(timer)
+          await loadMatch()
+          resolve()
+        },
+        { timeout: 3000, maximumAge: 60000 },
+      )
     })
-    setStep('result')
   }
 
   if (step === 'intro') return <IntroScreen onStart={handleStart} />
@@ -153,6 +216,18 @@ export default function ParcoursSensorielPage() {
         scorePct={result.scorePct}
         topTags={result.topTags}
         dimensionScores={result.dimensionScores}
+        onContinue={handleGoToMatch}
+        hasMatch={!!result.archetypeId}
+      />
+    )
+  }
+  if (step === 'match' && result) {
+    return (
+      <MatchScreen
+        archetypeName={result.archetypeName}
+        restaurant={matchRestaurant}
+        hasGeoloc={hasGeoloc}
+        onRequestGeoloc={requestGeoloc}
       />
     )
   }
