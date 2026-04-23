@@ -1,7 +1,8 @@
 'use client'
 
-import { motion } from 'framer-motion'
-import { Heart, Share2, ChevronRight, Phone, Clock, Shirt, CheckCircle } from 'lucide-react'
+import { motion, AnimatePresence } from 'framer-motion'
+import { Heart, Share2, ChevronRight, Phone, Clock, Shirt, CheckCircle, ThumbsUp, ThumbsDown, ExternalLink, PhoneCall } from 'lucide-react'
+import { useState } from 'react'
 import MichelinStar from '@/components/MichelinStar'
 import BackButton from '@/components/BackButton'
 import ImageSlider from '@/components/ImageSlider'
@@ -19,6 +20,18 @@ type Restaurant      = Database['public']['Tables']['restaurants']['Row'] & {
   restaurant_images:  RestaurantImage[]
 }
 
+type TraitInfo = { code: string; label: string; dimension_id: string }
+
+const DIMENSION_COLORS: Record<string, { bg: string; text: string }> = {
+  D1: { bg: '#fef3c7', text: '#92400e' },
+  D2: { bg: '#fce7f3', text: '#9d174d' },
+  D3: { bg: '#e0f2fe', text: '#075985' },
+  D4: { bg: '#dcfce7', text: '#166534' },
+  D5: { bg: '#f3e8ff', text: '#6b21a8' },
+  D6: { bg: '#fff7ed', text: '#9a3412' },
+  D7: { bg: '#f1f5f9', text: '#334155' },
+}
+
 const INFO_ROWS = [
   { icon: Clock, label: "Ouvert jusqu'à 23h", sub: "Aujourd'hui" },
   { icon: Shirt, label: 'Tenue élégante',      sub: 'Recommandée' },
@@ -27,12 +40,27 @@ const INFO_ROWS = [
 
 const itemTransition = { duration: 0.4, ease: 'easeOut' as const }
 
-export default function RestaurantDetailContent({ restaurant }: { restaurant: Restaurant }) {
+export default function RestaurantDetailContent({ restaurant, traits = [] }: { restaurant: Restaurant; traits?: TraitInfo[] }) {
   const { user } = useAuth()
-  const { liked, visited, toggleLike, toggleVisited } = useRestaurantActions(user?.id, restaurant.id)
+  const { liked, visited, toggleLike, toggleVisited, rateVisit } = useRestaurantActions(user?.id, restaurant.id)
+  const [showRating, setShowRating] = useState(false)
+  const [rated, setRated] = useState<boolean | null>(null)
+
+  async function handleToggleVisited() {
+    const wasVisited = visited
+    await toggleVisited()
+    if (!wasVisited) setShowRating(true)
+    else { setShowRating(false); setRated(null) }
+  }
+
+  async function handleRate(enjoyed: boolean) {
+    setRated(enjoyed)
+    setShowRating(false)
+    await rateVisit(enjoyed)
+  }
 
   return (
-    <div className="flex flex-col pb-28">
+    <div className="flex flex-col pb-24">
       <div className="relative w-full h-64 shrink-0">
         <ImageSlider images={restaurant.restaurant_images.sort((a, b) => a.position - b.position)} />
         <BackButton />
@@ -95,6 +123,23 @@ export default function RestaurantDetailContent({ restaurant }: { restaurant: Re
           où chaque produit trouve sa juste place.
         </motion.p>
 
+        {traits.length > 0 && (
+          <motion.div variants={fadeSlideUp} transition={itemTransition} className="flex flex-wrap gap-2">
+            {traits.map(trait => {
+              const color = DIMENSION_COLORS[trait.dimension_id] ?? { bg: '#f0f0eb', text: '#555' }
+              return (
+                <span
+                  key={trait.code}
+                  className="text-[12px] font-medium px-3 py-1.5 rounded-full"
+                  style={{ backgroundColor: color.bg, color: color.text }}
+                >
+                  {trait.label}
+                </span>
+              )
+            })}
+          </motion.div>
+        )}
+
         <motion.div variants={fadeSlideUp} transition={itemTransition} className="flex flex-col divide-y divide-michelin-light-gray">
           {INFO_ROWS.map(({ icon: Icon, label, sub }) => (
             <button key={label} className="flex items-center justify-between py-4 hover:opacity-70 transition-opacity">
@@ -110,10 +155,39 @@ export default function RestaurantDetailContent({ restaurant }: { restaurant: Re
           ))}
         </motion.div>
 
-        {/* J'ai visité */}
+        {/* Réservation */}
         <motion.div variants={fadeSlideUp} transition={itemTransition}>
+          {restaurant.online_booking && restaurant.url ? (
+            <a
+              href={restaurant.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="w-full flex items-center justify-between gap-3 bg-michelin-black text-white px-5 py-4 rounded-xl active:opacity-80 transition-opacity"
+            >
+              <div>
+                <p className="font-semibold text-[15px]">Réserver une table</p>
+                <p className="text-white/50 text-[12px] mt-0.5">Réservation en ligne disponible</p>
+              </div>
+              <ExternalLink size={18} className="text-white/60 flex-shrink-0" strokeWidth={1.5} />
+            </a>
+          ) : restaurant.phone ? (
+            <a
+              href={`tel:${restaurant.phone}`}
+              className="w-full flex items-center justify-between gap-3 bg-michelin-black text-white px-5 py-4 rounded-xl active:opacity-80 transition-opacity"
+            >
+              <div>
+                <p className="font-semibold text-[15px]">Réserver une table</p>
+                <p className="text-white/50 text-[12px] mt-0.5">{restaurant.phone}</p>
+              </div>
+              <PhoneCall size={18} className="text-white/60 flex-shrink-0" strokeWidth={1.5} />
+            </a>
+          ) : null}
+        </motion.div>
+
+        {/* J'ai visité */}
+        <motion.div variants={fadeSlideUp} transition={itemTransition} className="flex flex-col gap-3">
           <button
-            onClick={toggleVisited}
+            onClick={handleToggleVisited}
             className={`w-full flex items-center justify-center gap-2 py-3 rounded-xl border text-sm font-medium transition-colors ${
               visited
                 ? 'bg-green-50 border-green-200 text-green-700'
@@ -121,16 +195,46 @@ export default function RestaurantDetailContent({ restaurant }: { restaurant: Re
             }`}
           >
             <CheckCircle size={16} strokeWidth={1.5} />
-            {visited ? 'Visité !' : "J'ai visité ce restaurant"}
+            {visited
+              ? rated === true ? 'Visité · J\'ai adoré ♥' : rated === false ? 'Visité · Pas mon style' : 'Visité !'
+              : "J'ai visité ce restaurant"}
           </button>
+
+          <AnimatePresence>
+            {showRating && (
+              <motion.div
+                initial={{ opacity: 0, y: -8 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -8 }}
+                transition={{ duration: 0.2 }}
+                className="bg-michelin-black rounded-xl px-4 py-4 flex flex-col gap-3"
+              >
+                <p className="text-white text-sm font-medium text-center">Vous avez aimé ?</p>
+                <p className="text-white/50 text-xs text-center leading-relaxed">
+                  Votre avis affine votre profil gastronomique
+                </p>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => handleRate(false)}
+                    className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg border border-white/20 text-white/70 text-sm font-medium active:opacity-70 transition-opacity"
+                  >
+                    <ThumbsDown size={14} strokeWidth={1.5} />
+                    Pas vraiment
+                  </button>
+                  <button
+                    onClick={() => handleRate(true)}
+                    className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg bg-michelin-red text-white text-sm font-medium active:opacity-80 transition-opacity"
+                  >
+                    <ThumbsUp size={14} strokeWidth={1.5} />
+                    J&apos;ai adoré
+                  </button>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
         </motion.div>
       </motion.div>
 
-      <div className="fixed bottom-16 left-0 right-0 px-4 pb-3">
-        <button className="w-full bg-michelin-red text-white text-sm font-medium py-4 rounded hover:opacity-90 transition-opacity">
-          Réserver une table
-        </button>
-      </div>
     </div>
   )
 }

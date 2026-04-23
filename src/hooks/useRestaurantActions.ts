@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react'
 import { createClient } from '@/utils/supabase/client'
+import { updateTasteProfileFromSwipe } from '@/lib/sensoriel/actions'
 
 export function useRestaurantActions(userId: string | null | undefined, restaurantId: string) {
   const [liked, setLiked] = useState(false)
@@ -48,6 +49,7 @@ export function useRestaurantActions(userId: string | null | undefined, restaura
         .single()
       if (data) setSwipeId(data.id)
     }
+
   }, [userId, restaurantId, liked, swipeId])
 
   const toggleVisited = useCallback(async () => {
@@ -69,5 +71,10 @@ export function useRestaurantActions(userId: string | null | undefined, restaura
     }
   }, [userId, restaurantId, visited])
 
-  return { liked, visited, toggleLike, toggleVisited }
+  const rateVisit = useCallback(async (enjoyedIt: boolean) => {
+    if (!userId) return
+    updateTasteProfileFromSwipe({ userId, restaurantId, liked: enjoyedIt }).catch(() => {})
+  }, [userId, restaurantId])
+
+  return { liked, visited, toggleLike, toggleVisited, rateVisit }
 }

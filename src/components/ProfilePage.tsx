@@ -23,48 +23,11 @@ type TasteProfile = {
   archetypeScore: number
 }
 
-const MENU_ROWS = [
-  {
-    icon: Heart,
-    iconBg: "bg-michelin-red",
-    iconColor: "text-white",
-    label: "Mes favoris",
-    sub: "128 restaurants sauvegardés",
-    href: ROUTES.FAVORIS,
-  },
-  {
-    icon: Clock,
-    iconBg: "bg-michelin-light-gray",
-    iconColor: "text-michelin-black",
-    label: "Mon historique",
-    sub: "47 restaurants visités",
-    href: ROUTES.HISTORIQUE,
-  },
-  {
-    icon: Star,
-    iconBg: "bg-michelin-red",
-    iconColor: "text-white",
-    label: "Mon profil gastronomique",
-    sub: null, // dynamique
-    href: ROUTES.PROFIL_GASTRO,
-  },
-  {
-    icon: Bell,
-    iconBg: "bg-michelin-light-gray",
-    iconColor: "text-michelin-black",
-    label: "Notifications",
-    sub: "Activées",
-    href: ROUTES.PROFIL_NOTIFICATIONS,
-  },
-  {
-    icon: Settings,
-    iconBg: "bg-michelin-light-gray",
-    iconColor: "text-michelin-black",
-    label: "Paramètres",
-    sub: "",
-    href: ROUTES.PROFIL_PARAMETRES,
-  },
-];
+type UserStats = {
+  visites: number
+  favoris: number
+}
+
 
 function getInitiales(fullName: string | null | undefined) {
   if (!fullName) return "?";
@@ -81,10 +44,47 @@ function getMembreDateLabel(createdAt: string | undefined) {
   return `Membre depuis ${new Date(createdAt).toLocaleDateString("fr-FR", { month: "long", year: "numeric" })}`;
 }
 
-const STATS = [
-  { value: "47", label: "Visités" },
-  { value: "128", label: "Favoris" },
-  { value: "12", label: "Avis" },
+const MENU_ROWS_STATIC = [
+  {
+    icon: Heart,
+    iconBg: "bg-michelin-red",
+    iconColor: "text-white",
+    label: "Mes favoris",
+    href: ROUTES.FAVORIS,
+    statKey: "favoris" as const,
+  },
+  {
+    icon: Clock,
+    iconBg: "bg-michelin-light-gray",
+    iconColor: "text-michelin-black",
+    label: "Mon historique",
+    href: ROUTES.HISTORIQUE,
+    statKey: "visites" as const,
+  },
+  {
+    icon: Star,
+    iconBg: "bg-michelin-red",
+    iconColor: "text-white",
+    label: "Mon profil gastronomique",
+    href: ROUTES.PROFIL_GASTRO,
+    statKey: null,
+  },
+  {
+    icon: Bell,
+    iconBg: "bg-michelin-light-gray",
+    iconColor: "text-michelin-black",
+    label: "Notifications",
+    href: ROUTES.PROFIL_NOTIFICATIONS,
+    statKey: null,
+  },
+  {
+    icon: Settings,
+    iconBg: "bg-michelin-light-gray",
+    iconColor: "text-michelin-black",
+    label: "Paramètres",
+    href: ROUTES.PROFIL_PARAMETRES,
+    statKey: null,
+  },
 ];
 
 const ROLE_LABELS: Record<string, string> = {
@@ -97,10 +97,13 @@ const ROLE_LABELS: Record<string, string> = {
 export default function ProfilePage() {
   const { profile, user, role } = useAuth();
   const [tasteProfile, setTasteProfile] = useState<TasteProfile | null>(null);
+  const [stats, setStats] = useState<UserStats>({ visites: 0, favoris: 0 });
 
   useEffect(() => {
     if (!user) return;
     const supabase = createClient();
+
+    // Taste profile
     supabase
       .from("user_taste_profiles")
       .select("archetype_id, archetype_score")
@@ -118,6 +121,21 @@ export default function ProfilePage() {
           archetypeScore: Math.round(data.archetype_score),
         });
       });
+
+    // Stats réelles
+    Promise.all([
+      supabase
+        .from("user_visited_restaurants")
+        .select("id", { count: "exact", head: true })
+        .eq("user_id", user.id),
+      supabase
+        .from("user_swipes")
+        .select("id", { count: "exact", head: true })
+        .eq("user_id", user.id)
+        .eq("liked", true),
+    ]).then(([{ count: visites }, { count: favoris }]) => {
+      setStats({ visites: visites ?? 0, favoris: favoris ?? 0 });
+    });
   }, [user]);
 
   const fullName =
@@ -180,8 +198,11 @@ export default function ProfilePage() {
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-3 divide-x divide-michelin-light-gray bg-white border-b border-michelin-light-gray">
-        {STATS.map(({ value, label }) => (
+      <div className="grid grid-cols-2 divide-x divide-michelin-light-gray bg-white border-b border-michelin-light-gray">
+        {[
+          { value: stats.visites, label: "Visités" },
+          { value: stats.favoris, label: "Favoris" },
+        ].map(({ value, label }) => (
           <div key={label} className="flex flex-col items-center py-5">
             <span className="text-michelin-black font-bold text-2xl leading-none">
               {value}
@@ -211,37 +232,34 @@ export default function ProfilePage() {
           </Link>
         )}
 
-        {MENU_ROWS.map(
-          ({ icon: Icon, iconBg, iconColor, label, sub, href }) => {
-            const resolvedSub = sub === null && href === ROUTES.PROFIL_GASTRO
-              ? tasteProfile ? `${tasteProfile.archetypeName} · ${tasteProfile.archetypeScore}%` : 'Profil en cours…'
-              : sub;
-            return (
-              <Link
-                key={label}
-                href={href}
-                className="flex items-center justify-between bg-white rounded-xl px-4 py-4 hover:opacity-80 transition-opacity"
-              >
-                <div className="flex items-center gap-3">
-                  <div
-                    className={`w-9 h-9 rounded-full ${iconBg} flex items-center justify-center shrink-0`}
-                  >
-                    <Icon size={16} className={iconColor} strokeWidth={1.5} />
-                  </div>
-                  <div>
-                    <p className="text-michelin-black text-sm font-medium">
-                      {label}
-                    </p>
-                    {resolvedSub && (
-                      <p className="text-michelin-gray text-xs mt-0.5">{resolvedSub}</p>
-                    )}
-                  </div>
-                </div>
-                <ChevronRight size={16} className="text-michelin-gray shrink-0" />
-              </Link>
-            );
+        {MENU_ROWS_STATIC.map(({ icon: Icon, iconBg, iconColor, label, href, statKey }) => {
+          let sub: string | null = null
+          if (href === ROUTES.PROFIL_GASTRO) {
+            sub = tasteProfile ? `${tasteProfile.archetypeName} · ${tasteProfile.archetypeScore}%` : 'Profil en cours…'
+          } else if (statKey === 'favoris') {
+            sub = `${stats.favoris} restaurant${stats.favoris !== 1 ? 's' : ''} sauvegardé${stats.favoris !== 1 ? 's' : ''}`
+          } else if (statKey === 'visites') {
+            sub = `${stats.visites} restaurant${stats.visites !== 1 ? 's' : ''} visité${stats.visites !== 1 ? 's' : ''}`
           }
-        )}
+          return (
+            <Link
+              key={label}
+              href={href}
+              className="flex items-center justify-between bg-white rounded-xl px-4 py-4 hover:opacity-80 transition-opacity"
+            >
+              <div className="flex items-center gap-3">
+                <div className={`w-9 h-9 rounded-full ${iconBg} flex items-center justify-center shrink-0`}>
+                  <Icon size={16} className={iconColor} strokeWidth={1.5} />
+                </div>
+                <div>
+                  <p className="text-michelin-black text-sm font-medium">{label}</p>
+                  {sub && <p className="text-michelin-gray text-xs mt-0.5">{sub}</p>}
+                </div>
+              </div>
+              <ChevronRight size={16} className="text-michelin-gray shrink-0" />
+            </Link>
+          )
+        })}
 
         {user && (
           <form action={signOutAction}>
