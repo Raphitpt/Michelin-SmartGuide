@@ -24,7 +24,7 @@ import {
   markClaimNotificationReadAction,
 } from "@/lib/auth/actions";
 import { createClient } from "@/utils/supabase/client";
-import MichelinStar from "@/components/MichelinStar";
+import MichelinStar from "@/components/ui/MichelinStar";
 
 type TasteProfile = {
   archetypeName: string;
@@ -112,6 +112,21 @@ const ROLE_LABELS: Record<string, string> = {
   chef: "Chef",
   admin: "Administrateur",
 };
+
+function getInitiales(fullName: string | null | undefined) {
+  if (!fullName) return "?";
+  return fullName
+    .split(" ")
+    .slice(0, 2)
+    .map((w) => w[0])
+    .join("")
+    .toUpperCase();
+}
+
+function getMembreDateLabel(createdAt: string | undefined) {
+  if (!createdAt) return "";
+  return `Membre depuis ${new Date(createdAt).toLocaleDateString("fr-FR", { month: "long", year: "numeric" })}`;
+}
 
 export default function ProfilePage() {
   const { profile, user, role } = useAuth();
@@ -421,6 +436,55 @@ export default function ProfilePage() {
               </p>
             </button>
           </form>
+        )}
+
+        {/* Claim tile — swaps to restaurant management when accepted */}
+        {role === "chef" && claimStatus !== "accepted" && (
+          <Link
+            href={ROUTES.LOGIN_RESTAURANT_STATUS}
+            className="flex items-center justify-between bg-white rounded-xl px-4 py-4 hover:opacity-80 transition-opacity border border-michelin-red/20"
+          >
+            <div className="flex items-center gap-3">
+              <div className="w-9 h-9 rounded-full bg-michelin-red flex items-center justify-center shrink-0">
+                <FileText size={16} className="text-white" strokeWidth={1.5} />
+              </div>
+              <div>
+                <p className="text-michelin-black text-sm font-medium">
+                  Ma demande de revendication
+                </p>
+                {claimStatus && (
+                  <p
+                    className={`text-xs mt-0.5 font-medium ${CLAIM_STATUS_CONFIG[claimStatus]?.color ?? "text-michelin-gray"}`}
+                  >
+                    {CLAIM_STATUS_CONFIG[claimStatus]?.label}
+                  </p>
+                )}
+              </div>
+            </div>
+            <ChevronRight size={16} className="text-michelin-gray shrink-0" />
+          </Link>
+        )}
+
+        {role === "chef" && claimStatus === "accepted" && (
+          <Link
+            href={ROUTES.CHEF_RESTAURANT}
+            className="flex items-center justify-between bg-white rounded-xl px-4 py-4 hover:opacity-80 transition-opacity border border-green-200"
+          >
+            <div className="flex items-center gap-3">
+              <div className="w-9 h-9 rounded-full bg-green-600 flex items-center justify-center shrink-0">
+                <Store size={16} className="text-white" strokeWidth={1.5} />
+              </div>
+              <div>
+                <p className="text-michelin-black text-sm font-medium">
+                  Gérer mon restaurant
+                </p>
+                <p className="text-michelin-gray text-xs mt-0.5 truncate max-w-[180px]">
+                  {claimRestaurant?.name ?? "Mon restaurant"}
+                </p>
+              </div>
+            </div>
+            <ChevronRight size={16} className="text-michelin-gray shrink-0" />
+          </Link>
         )}
       </div>
     </div>

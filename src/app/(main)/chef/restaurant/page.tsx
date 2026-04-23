@@ -18,7 +18,7 @@ import { useRouter } from "next/navigation";
 import { createClient } from "@/utils/supabase/client";
 import { useAuth } from "@/context/AuthContext";
 import { ROUTES } from "@/constants";
-import MichelinStar from "@/components/MichelinStar";
+import MichelinStar from "@/components/ui/MichelinStar";
 
 type Restaurant = {
   id: string;
