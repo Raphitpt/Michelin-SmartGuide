@@ -149,6 +149,7 @@ export type MatchRestaurant = {
 export async function fetchMatchRestaurant(
   archetypeId: string,
   coords?: { lat: number; lng: number } | null,
+  excludeIds?: string[],
 ): Promise<MatchRestaurant | null> {
   const supabase = createClient()
 
@@ -202,7 +203,11 @@ export async function fetchMatchRestaurant(
   if (candidateIds.length === 0) return null
 
   candidateIds.sort((a, b) => (scoreMap[b] ?? 0) - (scoreMap[a] ?? 0))
-  const bestId = candidateIds[0]
+
+  const excluded = new Set(excludeIds ?? [])
+  const filtered = candidateIds.filter(id => !excluded.has(id))
+  const pool = (filtered.length > 0 ? filtered : candidateIds).slice(0, 3)
+  const bestId = pool[Math.floor(Math.random() * pool.length)]
 
   const { data: restaurant } = await supabase
     .from('restaurants')
