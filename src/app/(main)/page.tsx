@@ -1,11 +1,10 @@
-import HomePage from '@/components/HomePage'
-import HomeRestaurantList from '@/components/HomeRestaurantList'
-import PageTransition from '@/components/PageTransition'
+import HomePage from '@/components/pages/HomePage'
+import PageTransition from '@/components/ui/PageTransition'
 
 export default function Home() {
   return (
     <PageTransition>
-      <HomePage restaurantList={<HomeRestaurantList />} />
+      <HomePage />
     </PageTransition>
   )
 }

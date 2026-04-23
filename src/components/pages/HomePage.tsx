@@ -1,9 +1,10 @@
 'use client'
 
-import React, { useState, useEffect } from 'react'
+import React, { useCallback, useEffect, useState } from 'react'
 import Link from 'next/link'
-import { Star, ArrowRight } from 'lucide-react'
-import AppHeader from '@/components/AppHeader'
+import { ArrowRight } from 'lucide-react'
+import AppHeader from '@/components/ui/AppHeader'
+import HomeRestaurantList from '@/components/restaurant/HomeRestaurantList'
 import { FILTRE_ACCUEIL, FiltreAccueil, ROUTES } from '@/constants'
 import { useAuth } from '@/context/AuthContext'
 import { createClient } from '@/utils/supabase/client'
@@ -32,7 +33,7 @@ function CircularProgress({ value }: Readonly<{ value: number }>) {
   )
 }
 
-export default function HomePage({ restaurantList }: Readonly<{ restaurantList: React.ReactNode }>) {
+export default function HomePage() {
   const [activeFilter, setActiveFilter] = useState<FiltreAccueil>(FILTRE_ACCUEIL.A_PROXIMITE)
   const { user, profile } = useAuth()
   const [tasteProfile, setTasteProfile] = useState<{ archetypeName: string; archetypeScore: number } | null>(null)
@@ -45,7 +46,7 @@ export default function HomePage({ restaurantList }: Readonly<{ restaurantList: 
       .select('archetype_id, archetype_score')
       .eq('user_id', user.id)
       .maybeSingle()
-      .then(async ({ data }) => {
+      .then(async ({ data, error }) => {
         if (!data) return
         const { data: arch } = await supabase
           .from('reco_archetypes')
@@ -53,11 +54,15 @@ export default function HomePage({ restaurantList }: Readonly<{ restaurantList: 
           .eq('id', data.archetype_id)
           .maybeSingle()
         setTasteProfile({
-          archetypeName: arch?.nom ?? data.archetype_id,
-          archetypeScore: Math.round(data.archetype_score),
+          archetypeName: arch?.nom ?? data.archetype_id ?? '—',
+          archetypeScore: Math.round(data.archetype_score ?? 0),
         })
       })
   }, [user])
+
+  const handleFilterFallback = useCallback(() => {
+    setActiveFilter(FILTRE_ACCUEIL.ETOILES)
+  }, [])
 
   const fullName = profile?.full_name ?? user?.user_metadata?.full_name ?? null
   const prenom = fullName?.split(' ')[0] ?? null
@@ -118,32 +123,15 @@ export default function HomePage({ restaurantList }: Readonly<{ restaurantList: 
       <section className="px-4 mb-3">
         <div className="flex items-baseline justify-between">
           <h2 className="text-michelin-black font-bold text-base">Pour vous ce soir</h2>
-          <Link href={ROUTES.RESTAURANTS} className="text-michelin-red text-sm font-medium hover:opacity-80">
+          <Link href={ROUTES.RECHERCHE} className="text-michelin-red text-sm font-medium hover:opacity-80">
             Tout voir
           </Link>
         </div>
-        <p className="text-michelin-gray text-xs mt-0.5">12 restaurants qui vous correspondent</p>
       </section>
 
       {/* Restaurant cards horizontal scroll */}
       <section className="mb-5">
-        {restaurantList}
-      </section>
-
-      {/* Michelin selection banner */}
-      <section className="mx-4">
-        <Link
-          href={ROUTES.RESTAURANTS}
-          className="flex items-center justify-between rounded-xl px-4 py-4 bg-michelin-black text-white hover:opacity-90 transition-opacity"
-        >
-          <div className="flex items-center gap-2">
-            <Star size={14} fill="white" stroke="none" />
-            <span className="text-sm font-medium">Sélection Michelin</span>
-            <span className="text-white/50 text-sm">·</span>
-            <span className="text-sm text-white/70">8 étoilés autour de vous</span>
-          </div>
-          <ArrowRight size={16} className="shrink-0" />
-        </Link>
+        <HomeRestaurantList activeFilter={activeFilter} onFilterFallback={handleFilterFallback} />
       </section>
 
     </div>

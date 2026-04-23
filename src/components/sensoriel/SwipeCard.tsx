@@ -3,18 +3,18 @@
 
 import { motion, useMotionValue, useTransform } from 'framer-motion'
 import type { RestaurantForSwipe } from '@/lib/sensoriel/queries'
-import MichelinStar from '@/components/MichelinStar'
+import MichelinStar from '@/components/ui/MichelinStar'
 
 const SWIPE_THRESHOLD = 80
 
 const DIMENSION_COLORS: Record<string, { bg: string; text: string }> = {
-  D1: { bg: '#fef3c7', text: '#92400e' }, // cuisine — ambre
-  D2: { bg: '#fce7f3', text: '#9d174d' }, // produits — rose
-  D3: { bg: '#e0f2fe', text: '#075985' }, // sensoriel — bleu
-  D4: { bg: '#dcfce7', text: '#166534' }, // contexte — vert
-  D5: { bg: '#f3e8ff', text: '#6b21a8' }, // valeurs — violet
-  D6: { bg: '#fff7ed', text: '#9a3412' }, // budget — orange
-  D7: { bg: '#f1f5f9', text: '#334155' }, // catégorie — gris
+  D1: { bg: 'rgba(245,158,11,0.22)',  text: '#fbbf24' }, // cuisine — ambre
+  D2: { bg: 'rgba(236,72,153,0.20)',  text: '#f472b6' }, // produits — rose
+  D3: { bg: 'rgba(14,165,233,0.20)',  text: '#38bdf8' }, // sensoriel — bleu
+  D4: { bg: 'rgba(34,197,94,0.20)',   text: '#4ade80' }, // contexte — vert
+  D5: { bg: 'rgba(168,85,247,0.20)',  text: '#c084fc' }, // valeurs — violet
+  D6: { bg: 'rgba(249,115,22,0.22)',  text: '#fb923c' }, // budget — orange
+  D7: { bg: 'rgba(148,163,184,0.18)', text: '#94a3b8' }, // catégorie — gris
 }
 
 type Props = {
@@ -26,11 +26,12 @@ type Props = {
   zIndex?: number
 }
 
-export default function SwipeCard({ restaurant, onSwipe, onPass, isTop, stackOffset, zIndex }: Props) {
+export default function SwipeCard({ restaurant, onSwipe, isTop, stackOffset, zIndex }: Props) {
   const x = useMotionValue(0)
-  const rotate = useTransform(x, [-150, 0, 150], [-15, 0, 15])
-  const likeOpacity = useTransform(x, [20, SWIPE_THRESHOLD], [0, 1])
-  const dislikeOpacity = useTransform(x, [-SWIPE_THRESHOLD, -20], [1, 0])
+  const rotate = useTransform(x, [-160, 0, 160], [-12, 0, 12])
+  const likeOpacity = useTransform(x, [30, SWIPE_THRESHOLD], [0, 1])
+  const dislikeOpacity = useTransform(x, [-SWIPE_THRESHOLD, -30], [1, 0])
+  const cardOpacity = useTransform(x, [-200, -120, 0, 120, 200], [0.6, 1, 1, 1, 0.6])
 
   function handleDragEnd(_: unknown, info: { offset: { x: number } }) {
     if (info.offset.x > SWIPE_THRESHOLD) {
@@ -45,10 +46,11 @@ export default function SwipeCard({ restaurant, onSwipe, onPass, isTop, stackOff
   if (!isTop) {
     return (
       <div
-        className="absolute inset-0 bg-white rounded-[16px] shadow-lg"
+        className="absolute inset-0 rounded-[24px] overflow-hidden"
         style={{
           transform: `rotate(${stackOffset?.rotate ?? 0}deg) translateY(${stackOffset?.y ?? 0}px) scale(${stackOffset?.scale ?? 0.95})`,
           zIndex,
+          background: '#1a1a18',
         }}
       />
     )
@@ -57,71 +59,97 @@ export default function SwipeCard({ restaurant, onSwipe, onPass, isTop, stackOff
   return (
     <motion.div
       className="absolute inset-0 cursor-grab active:cursor-grabbing"
-      style={{ x, rotate, zIndex }}
+      style={{ x, rotate, zIndex, opacity: cardOpacity }}
       drag="x"
       dragConstraints={{ left: 0, right: 0 }}
+      dragElastic={0.12}
       onDragEnd={handleDragEnd}
-      whileTap={{ scale: 1.02 }}
+      whileTap={{ scale: 1.01 }}
     >
-      <div className="w-full h-full bg-white rounded-[16px] shadow-lg overflow-hidden flex flex-col">
-        <div className="h-[55%] bg-[#dcdcdc] relative flex-shrink-0">
-          {restaurant.main_image && (
-            <img
-              src={restaurant.main_image}
-              alt={restaurant.name}
-              className="w-full h-full object-cover"
-            />
-          )}
-        </div>
+      <div className="w-full h-full rounded-[24px] overflow-hidden relative">
+        {/* Photo plein format */}
+        {restaurant.main_image ? (
+          <img
+            src={restaurant.main_image}
+            alt={restaurant.name}
+            className="absolute inset-0 w-full h-full object-cover"
+            draggable={false}
+          />
+        ) : (
+          <div className="absolute inset-0 bg-[#1a1a18]" />
+        )}
 
+        {/* Gradient overlay bas */}
+        <div
+          className="absolute inset-0"
+          style={{
+            background: 'linear-gradient(to top, rgba(10,10,8,0.92) 0%, rgba(10,10,8,0.4) 45%, transparent 70%)',
+          }}
+        />
+
+        {/* Overlay LIKE */}
         <motion.div
-          className="absolute inset-0 rounded-[16px] bg-[rgba(26,122,74,0.28)] flex items-center justify-start pl-8 pt-16"
+          className="absolute inset-0 rounded-[24px] flex items-start justify-start pt-14 pl-7"
           style={{ opacity: likeOpacity }}
         >
-          <p
-            className="text-[#1a7a4a] font-bold text-[26px] whitespace-nowrap"
-            style={{ transform: 'rotate(12deg)' }}
+          <div
+            className="border border-[#e8d5a3] rounded-[4px] px-3 py-1"
+            style={{ transform: 'rotate(-8deg)' }}
           >
-            ♥ J&apos;ADORE
-          </p>
+            <span className="text-[#e8d5a3] font-light text-[22px] tracking-[3px] uppercase">
+              Pour moi
+            </span>
+          </div>
         </motion.div>
 
+        {/* Overlay DISLIKE */}
         <motion.div
-          className="absolute inset-0 rounded-[16px] bg-[rgba(186,11,47,0.25)] flex items-center justify-start pl-8 pt-16"
+          className="absolute inset-0 rounded-[24px] flex items-start justify-end pt-14 pr-7"
           style={{ opacity: dislikeOpacity }}
         >
-          <p
-            className="text-[#ba0b2f] font-bold text-[24px] whitespace-nowrap"
-            style={{ transform: 'rotate(-12deg)' }}
+          <div
+            className="border border-white/50 rounded-[4px] px-3 py-1"
+            style={{ transform: 'rotate(8deg)' }}
           >
-            ✗ PAS MON STYLE
-          </p>
+            <span className="text-white/70 font-light text-[22px] tracking-[3px] uppercase">
+              Non merci
+            </span>
+          </div>
         </motion.div>
 
-        <div className="p-4 flex flex-col gap-2">
-          {starCount > 0 ? (
-            <div className="flex gap-0.5">
+        {/* Infos bas de carte */}
+        <div className="absolute bottom-0 left-0 right-0 p-6 flex flex-col gap-2">
+          {starCount > 0 && (
+            <div className="flex gap-0.5 mb-0.5">
               {Array.from({ length: starCount }, (_, i) => (
-                <MichelinStar key={i} size={12} />
+                <MichelinStar key={i} size={11} />
               ))}
             </div>
-          ) : restaurant.michelin_label ? (
-            <p className="text-[#ba0b2f] font-medium text-[11px]">{restaurant.michelin_label}</p>
-          ) : null}
-          <p className="text-[#191919] font-semibold text-[18px]">{restaurant.name}</p>
-          <p className="text-[#757575] font-normal text-[14px]">
+          )}
+          {starCount === 0 && restaurant.michelin_label && (
+            <p className="text-[#e8d5a3] text-[11px] tracking-[1.5px] uppercase font-medium">
+              {restaurant.michelin_label}
+            </p>
+          )}
+
+          <h2 className="text-white font-semibold text-[22px] leading-[1.15]">
+            {restaurant.name}
+          </h2>
+
+          <p className="text-white/55 text-[13px] font-light tracking-wide">
             {restaurant.city}
             {restaurant.cuisine_style_label ? ` · ${restaurant.cuisine_style_label}` : ''}
           </p>
+
           {restaurant.traits.length > 0 && (
-            <div className="flex gap-1 flex-wrap mt-1">
+            <div className="flex gap-1.5 flex-wrap mt-1">
               {restaurant.traits.slice(0, 4).map(trait => {
-                const color = DIMENSION_COLORS[trait.dimension_id] ?? { bg: '#f0f0eb', text: '#555' }
+                const color = DIMENSION_COLORS[trait.dimension_id] ?? { bg: 'rgba(255,255,255,0.12)', text: 'rgba(255,255,255,0.7)' }
                 return (
                   <span
                     key={trait.code}
-                    className="text-[11px] font-medium px-2 py-0.5 rounded-full"
-                    style={{ backgroundColor: color.bg, color: color.text }}
+                    className="text-[11px] font-medium px-2.5 py-1 rounded-full tracking-wide"
+                    style={{ background: color.bg, color: color.text, backdropFilter: 'blur(8px)' }}
                   >
                     {trait.label}
                   </span>

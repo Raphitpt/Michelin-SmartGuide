@@ -119,6 +119,112 @@ export async function fetchArchetypesAndWeights() {
   }
 }
 
+export type MatchRestaurant = {
+  id: string
+  name: string
+  city: string | null
+  main_image: string | null
+  michelin_stars: number
+  michelin_label: string | null
+  cuisine_style_label: string | null
+  distance_km: number | null
+}
+
+export async function fetchMatchRestaurant(
+  archetypeId: string,
+  coords?: { lat: number; lng: number } | null,
+): Promise<MatchRestaurant | null> {
+  const supabase = createClient()
+
+  const { data: weights } = await supabase
+    .from('reco_archetype_weights')
+    .select('trait_code, weight')
+    .eq('archetype_id', archetypeId)
+    .order('weight', { ascending: false })
+    .limit(20)
+
+  if (!weights || weights.length === 0) return null
+
+  const topCodes = weights.slice(0, 10).map(w => w.trait_code)
+
+  const { data: traitRows } = await supabase
+    .from('restaurant_traits')
+    .select('restaurant_id')
+    .in('trait_code', topCodes)
+
+  if (!traitRows || traitRows.length === 0) return null
+
+  const scoreMap: Record<string, number> = {}
+  for (const row of traitRows) {
+    scoreMap[row.restaurant_id] = (scoreMap[row.restaurant_id] ?? 0) + 1
+  }
+
+  let nearbyIds: Set<string> | null = null
+  const distanceMap: Record<string, number> = {}
+
+  if (coords) {
+    const { data: nearbyRows } = await supabase.rpc('restaurants_nearby', {
+      user_lat: coords.lat,
+      user_lng: coords.lng,
+      radius_meters: 50000,
+    })
+    if (nearbyRows && Array.isArray(nearbyRows)) {
+      nearbyIds = new Set((nearbyRows as Array<{ id: string; distance_meters?: number }>).map(r => r.id))
+      for (const r of nearbyRows as Array<{ id: string; distance_meters?: number }>) {
+        if (r.distance_meters != null) {
+          distanceMap[r.id] = Math.round(r.distance_meters / 100) / 10
+        }
+      }
+    }
+  }
+
+  const candidateIds = nearbyIds
+    ? Object.keys(scoreMap).filter(id => nearbyIds!.has(id))
+    : Object.keys(scoreMap)
+
+  if (candidateIds.length === 0) return null
+
+  candidateIds.sort((a, b) => (scoreMap[b] ?? 0) - (scoreMap[a] ?? 0))
+  const bestId = candidateIds[0]
+
+  const { data: restaurant } = await supabase
+    .from('restaurants')
+    .select('id, name, city, main_image, michelin_award_id, michelin_awards(stars, label)')
+    .eq('id', bestId)
+    .eq('is_published', true)
+    .maybeSingle()
+
+  if (!restaurant) return null
+
+  const { data: traitLabels } = await supabase
+    .from('restaurant_traits')
+    .select('trait_code, reco_traits(label, dimension_id)')
+    .eq('restaurant_id', bestId)
+
+  const cuisineLabel = traitLabels
+    ?.map(t => {
+      const raw = t.reco_traits as unknown
+      const rt = Array.isArray(raw) ? (raw[0] as { label: string; dimension_id: string } | undefined) ?? null : raw as { label: string; dimension_id: string } | null
+      return rt ? { code: t.trait_code, label: rt.label, dimension_id: rt.dimension_id } : null
+    })
+    .filter(Boolean)
+    .find(t => t!.code.startsWith('cuisine.') || t!.code.startsWith('style.'))?.label ?? null
+
+  const rawAward = (restaurant as unknown as { michelin_awards: { stars: number; label: string } | { stars: number; label: string }[] | null }).michelin_awards
+  const award = Array.isArray(rawAward) ? rawAward[0] ?? null : rawAward
+
+  return {
+    id: restaurant.id,
+    name: restaurant.name,
+    city: restaurant.city,
+    main_image: restaurant.main_image,
+    michelin_stars: award?.stars ?? 0,
+    michelin_label: award?.stars === 0 ? (award?.label ?? null) : null,
+    cuisine_style_label: cuisineLabel,
+    distance_km: distanceMap[bestId] ?? null,
+  }
+}
+
 export async function checkHasTasteProfile(userId: string): Promise<boolean> {
   const supabase = createClient()
   const { data } = await supabase

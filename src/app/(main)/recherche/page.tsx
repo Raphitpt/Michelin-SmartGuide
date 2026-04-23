@@ -1,5 +1,5 @@
-import SearchPage from '@/components/SearchPage'
-import PageTransition from '@/components/PageTransition'
+import SearchPage from '@/components/pages/SearchPage'
+import PageTransition from '@/components/ui/PageTransition'
 
 export default function Recherche() {
   return (

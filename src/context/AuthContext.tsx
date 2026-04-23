@@ -1,6 +1,7 @@
 'use client'
 
 import { createContext, useContext, useEffect, useMemo, useState } from 'react'
+import { useRouter } from 'next/navigation'
 import { createClient } from '@/utils/supabase/client'
 import type { Session, User } from '@supabase/supabase-js'
 import type { Database } from '@/types/supabase'
@@ -30,6 +31,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [profile, setProfile] = useState<Profile | null>(null)
   const [role, setRole] = useState<UserRole | null>(null)
   const [loading, setLoading] = useState(true)
+  const router = useRouter()
 
   useEffect(() => {
     const supabase = createClient()
@@ -40,38 +42,29 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setRole(data?.role ?? null)
     }
 
-    const applySession = (s: Session | null) => {
+    // onAuthStateChange fires INITIAL_SESSION immediately with the current session
+    // This replaces the getSession() call and handles all auth events
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, s) => {
       setSession(s)
       setUser(s?.user ?? null)
       setRole((s?.user?.app_metadata?.user_role as UserRole) ?? null)
-    }
 
-    supabase.auth.getSession().then(({ data: { session: s } }) => {
-      applySession(s)
       if (s?.user) {
         fetchProfile(s.user.id)
       } else {
         setProfile(null)
         setRole(null)
       }
+
+      if (event === 'SIGNED_IN' || event === 'SIGNED_OUT') {
+        router.refresh()
+      }
+
       setLoading(false)
     })
 
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange((event, s) => {
-      if (event === 'INITIAL_SESSION') return
-      applySession(s)
-      if (s?.user) {
-        fetchProfile(s.user.id)
-      } else {
-        setProfile(null)
-        setRole(null)
-      }
-    })
-
     return () => subscription.unsubscribe()
-  }, [])
+  }, [router])
 
   const value = useMemo(
     () => ({ user, session, profile, role, loading }),

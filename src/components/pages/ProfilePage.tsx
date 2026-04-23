@@ -47,29 +47,32 @@ type ClaimRestaurant = {
   michelin_awards: MichelinAward | MichelinAward[] | null;
 };
 
-const CLAIM_STATUS_CONFIG: Record<ClaimStatus, { label: string; color: string }> = {
-  pending:       { label: "En cours d'examen", color: "text-yellow-500" },
-  accepted:      { label: "Acceptée",           color: "text-green-500" },
-  refused:       { label: "Refusée",            color: "text-red-500" },
-  missing_infos: { label: "Infos manquantes",   color: "text-orange-500" },
+const CLAIM_STATUS_CONFIG: Record<
+  ClaimStatus,
+  { label: string; color: string }
+> = {
+  pending: { label: "En cours d'examen", color: "text-yellow-500" },
+  accepted: { label: "Acceptée", color: "text-green-500" },
+  refused: { label: "Refusée", color: "text-red-500" },
+  missing_infos: { label: "Infos manquantes", color: "text-orange-500" },
 };
 
-const MENU_ROWS = [
+const MENU_ROWS_STATIC = [
   {
     icon: Heart,
     iconBg: "bg-michelin-red",
     iconColor: "text-white",
     label: "Mes favoris",
-    sub: "128 restaurants sauvegardés",
     href: ROUTES.FAVORIS,
+    statKey: "favoris" as const,
   },
   {
     icon: Clock,
     iconBg: "bg-michelin-light-gray",
     iconColor: "text-michelin-black",
     label: "Mon historique",
-    sub: "47 restaurants visités",
     href: ROUTES.HISTORIQUE,
+    statKey: "visites" as const,
   },
   {
     icon: Star,
@@ -78,45 +81,30 @@ const MENU_ROWS = [
     label: "Mon profil gastronomique",
     sub: null,
     href: ROUTES.PROFIL_GASTRO,
+    statKey: null,
   },
   {
     icon: Bell,
     iconBg: "bg-michelin-light-gray",
     iconColor: "text-michelin-black",
     label: "Notifications",
-    sub: "Activées",
     href: ROUTES.PROFIL_NOTIFICATIONS,
+    statKey: null,
   },
   {
     icon: Settings,
     iconBg: "bg-michelin-light-gray",
     iconColor: "text-michelin-black",
     label: "Paramètres",
-    sub: "",
     href: ROUTES.PROFIL_PARAMETRES,
+    statKey: null,
   },
 ];
 
-function getInitiales(fullName: string | null | undefined) {
-  if (!fullName) return "?";
-  return fullName
-    .split(" ")
-    .slice(0, 2)
-    .map((w) => w[0])
-    .join("")
-    .toUpperCase();
-}
-
-function getMembreDateLabel(createdAt: string | undefined) {
-  if (!createdAt) return "";
-  return `Membre depuis ${new Date(createdAt).toLocaleDateString("fr-FR", { month: "long", year: "numeric" })}`;
-}
-
-const STATS = [
-  { value: "47", label: "Visités" },
-  { value: "128", label: "Favoris" },
-  { value: "12", label: "Avis" },
-];
+type UserStats = {
+  visites: number;
+  favoris: number;
+};
 
 const ROLE_LABELS: Record<string, string> = {
   visitor: "Visiteur",
@@ -129,8 +117,13 @@ export default function ProfilePage() {
   const { profile, user, role } = useAuth();
   const [tasteProfile, setTasteProfile] = useState<TasteProfile | null>(null);
   const [claimStatus, setClaimStatus] = useState<ClaimStatus | null>(null);
-  const [claimRestaurant, setClaimRestaurant] = useState<ClaimRestaurant | null>(null);
-  const [notification, setNotification] = useState<{ id: string; title: string; body: string | null } | null>(null);
+  const [claimRestaurant, setClaimRestaurant] =
+    useState<ClaimRestaurant | null>(null);
+  const [notification, setNotification] = useState<{
+    id: string;
+    title: string;
+    body: string | null;
+  } | null>(null);
 
   const isUserConnected = !!user;
 
@@ -162,10 +155,13 @@ export default function ProfilePage() {
         if (data) setNotification(data);
       });
   }, [user, role]);
+  const [stats, setStats] = useState<UserStats>({ visites: 0, favoris: 0 });
 
   useEffect(() => {
     if (!user) return;
     const supabase = createClient();
+
+    // Taste profile
     supabase
       .from("user_taste_profiles")
       .select("archetype_id, archetype_score")
@@ -183,17 +179,34 @@ export default function ProfilePage() {
           archetypeScore: Math.round(data.archetype_score),
         });
       });
+
+    // Stats réelles
+    Promise.all([
+      supabase
+        .from("user_visited_restaurants")
+        .select("id", { count: "exact", head: true })
+        .eq("user_id", user.id),
+      supabase
+        .from("user_swipes")
+        .select("id", { count: "exact", head: true })
+        .eq("user_id", user.id)
+        .eq("liked", true),
+    ]).then(([{ count: visites }, { count: favoris }]) => {
+      setStats({ visites: visites ?? 0, favoris: favoris ?? 0 });
+    });
   }, [user]);
 
-  const fullName = profile?.full_name ?? user?.user_metadata?.full_name ?? "Utilisateur";
+  const fullName =
+    profile?.full_name ?? user?.user_metadata?.full_name ?? "Utilisateur";
   const initiales = getInitiales(fullName);
   const membreDepuis = getMembreDateLabel(user?.created_at);
 
-  const michelinAward = claimStatus === "accepted" && claimRestaurant
-    ? (Array.isArray(claimRestaurant.michelin_awards)
+  const michelinAward =
+    claimStatus === "accepted" && claimRestaurant
+      ? Array.isArray(claimRestaurant.michelin_awards)
         ? claimRestaurant.michelin_awards[0]
-        : claimRestaurant.michelin_awards)
-    : null;
+        : claimRestaurant.michelin_awards
+      : null;
 
   const handleDismissNotification = async () => {
     if (!notification) return;
@@ -207,9 +220,13 @@ export default function ProfilePage() {
       {notification && (
         <div className="flex items-start gap-3 bg-green-600 text-white px-4 py-3">
           <div className="flex-1 min-w-0">
-            <p className="text-sm font-semibold leading-tight">{notification.title}</p>
+            <p className="text-sm font-semibold leading-tight">
+              {notification.title}
+            </p>
             {notification.body && (
-              <p className="text-xs text-green-100 mt-0.5 leading-snug">{notification.body}</p>
+              <p className="text-xs text-green-100 mt-0.5 leading-snug">
+                {notification.body}
+              </p>
             )}
           </div>
           <button
@@ -283,13 +300,16 @@ export default function ProfilePage() {
               <MichelinStar key={i} size={12} />
             ))}
             <span className="text-white text-xs font-medium ml-0.5">
-              {michelinAward.stars} étoile{michelinAward.stars > 1 ? "s" : ""} Michelin
+              {michelinAward.stars} étoile{michelinAward.stars > 1 ? "s" : ""}{" "}
+              Michelin
             </span>
           </div>
         )}
         {michelinAward && michelinAward.stars === 0 && (
           <div className="mt-3 flex items-center gap-1.5 bg-michelin-black/60 border border-white/10 rounded-full px-3 py-1.5">
-            <span className="text-white/80 text-xs font-medium">{michelinAward.label}</span>
+            <span className="text-white/80 text-xs font-medium">
+              {michelinAward.label}
+            </span>
           </div>
         )}
 
@@ -304,8 +324,11 @@ export default function ProfilePage() {
       </div>
 
       {isUserConnected && (
-        <div className="grid grid-cols-3 divide-x divide-michelin-light-gray bg-white border-b border-michelin-light-gray">
-          {STATS.map(({ value, label }) => (
+        <div className="grid grid-cols-2 divide-x divide-michelin-light-gray bg-white border-b border-michelin-light-gray">
+          {[
+            { value: stats.visites, label: "Visités" },
+            { value: stats.favoris, label: "Favoris" },
+          ].map(({ value, label }) => (
             <div key={label} className="flex flex-col items-center py-5">
               <span className="text-michelin-black font-bold text-2xl leading-none">
                 {value}
@@ -328,52 +351,11 @@ export default function ProfilePage() {
                 <Newspaper size={16} className="text-white" strokeWidth={1.5} />
               </div>
               <div>
-                <p className="text-michelin-black text-sm font-medium">Mes articles</p>
-                <p className="text-michelin-gray text-xs mt-0.5">Gérer mes publications</p>
-              </div>
-            </div>
-            <ChevronRight size={16} className="text-michelin-gray shrink-0" />
-          </Link>
-        )}
-
-        {/* Claim tile — swaps to restaurant management when accepted */}
-        {role === "chef" && claimStatus !== "accepted" && (
-          <Link
-            href={ROUTES.LOGIN_RESTAURANT_STATUS}
-            className="flex items-center justify-between bg-white rounded-xl px-4 py-4 hover:opacity-80 transition-opacity border border-michelin-red/20"
-          >
-            <div className="flex items-center gap-3">
-              <div className="w-9 h-9 rounded-full bg-michelin-red flex items-center justify-center shrink-0">
-                <FileText size={16} className="text-white" strokeWidth={1.5} />
-              </div>
-              <div>
                 <p className="text-michelin-black text-sm font-medium">
-                  Ma demande de revendication
+                  Mes articles
                 </p>
-                {claimStatus && (
-                  <p className={`text-xs mt-0.5 font-medium ${CLAIM_STATUS_CONFIG[claimStatus]?.color ?? "text-michelin-gray"}`}>
-                    {CLAIM_STATUS_CONFIG[claimStatus]?.label}
-                  </p>
-                )}
-              </div>
-            </div>
-            <ChevronRight size={16} className="text-michelin-gray shrink-0" />
-          </Link>
-        )}
-
-        {role === "chef" && claimStatus === "accepted" && (
-          <Link
-            href={ROUTES.CHEF_RESTAURANT}
-            className="flex items-center justify-between bg-white rounded-xl px-4 py-4 hover:opacity-80 transition-opacity border border-green-200"
-          >
-            <div className="flex items-center gap-3">
-              <div className="w-9 h-9 rounded-full bg-green-600 flex items-center justify-center shrink-0">
-                <Store size={16} className="text-white" strokeWidth={1.5} />
-              </div>
-              <div>
-                <p className="text-michelin-black text-sm font-medium">Gérer mon restaurant</p>
-                <p className="text-michelin-gray text-xs mt-0.5 truncate max-w-[180px]">
-                  {claimRestaurant?.name ?? "Mon restaurant"}
+                <p className="text-michelin-gray text-xs mt-0.5">
+                  Gérer mes publications
                 </p>
               </div>
             </div>
@@ -381,32 +363,45 @@ export default function ProfilePage() {
           </Link>
         )}
 
-        {MENU_ROWS.map(({ icon: Icon, iconBg, iconColor, label, sub, href }) => {
-          const gastroSub = tasteProfile
-            ? `${tasteProfile.archetypeName} · ${tasteProfile.archetypeScore}%`
-            : "Profil en cours…";
-          const resolvedSub = sub === null && href === ROUTES.PROFIL_GASTRO ? gastroSub : sub;
-          return (
-            <Link
-              key={label}
-              href={href}
-              className="flex items-center justify-between bg-white rounded-xl px-4 py-4 hover:opacity-80 transition-opacity"
-            >
-              <div className="flex items-center gap-3">
-                <div className={`w-9 h-9 rounded-full ${iconBg} flex items-center justify-center shrink-0`}>
-                  <Icon size={16} className={iconColor} strokeWidth={1.5} />
+        {MENU_ROWS_STATIC.map(
+          ({ icon: Icon, iconBg, iconColor, label, sub, href }) => {
+            const resolvedSub =
+              sub === null && href === ROUTES.PROFIL_GASTRO
+                ? tasteProfile
+                  ? `${tasteProfile.archetypeName} · ${tasteProfile.archetypeScore}%`
+                  : "Profil en cours…"
+                : sub;
+            return (
+              <Link
+                key={label}
+                href={href}
+                className="flex items-center justify-between bg-white rounded-xl px-4 py-4 hover:opacity-80 transition-opacity"
+              >
+                <div className="flex items-center gap-3">
+                  <div
+                    className={`w-9 h-9 rounded-full ${iconBg} flex items-center justify-center shrink-0`}
+                  >
+                    <Icon size={16} className={iconColor} strokeWidth={1.5} />
+                  </div>
+                  <div>
+                    <p className="text-michelin-black text-sm font-medium">
+                      {label}
+                    </p>
+                    {resolvedSub && (
+                      <p className="text-michelin-gray text-xs mt-0.5">
+                        {resolvedSub}
+                      </p>
+                    )}
+                  </div>
                 </div>
-                <div>
-                  <p className="text-michelin-black text-sm font-medium">{label}</p>
-                  {resolvedSub && (
-                    <p className="text-michelin-gray text-xs mt-0.5">{resolvedSub}</p>
-                  )}
-                </div>
-              </div>
-              <ChevronRight size={16} className="text-michelin-gray shrink-0" />
-            </Link>
-          );
-        })}
+                <ChevronRight
+                  size={16}
+                  className="text-michelin-gray shrink-0"
+                />
+              </Link>
+            );
+          },
+        )}
 
         {isUserConnected && (
           <form action={signOutAction}>
@@ -415,9 +410,15 @@ export default function ProfilePage() {
               className="w-full flex items-center gap-3 bg-white rounded-xl px-4 py-4 hover:opacity-80 transition-opacity text-left"
             >
               <div className="w-9 h-9 rounded-full bg-michelin-light-gray flex items-center justify-center shrink-0">
-                <LogOut size={16} className="text-michelin-black" strokeWidth={1.5} />
+                <LogOut
+                  size={16}
+                  className="text-michelin-black"
+                  strokeWidth={1.5}
+                />
               </div>
-              <p className="text-michelin-black text-sm font-medium">Se déconnecter</p>
+              <p className="text-michelin-black text-sm font-medium">
+                Se déconnecter
+              </p>
             </button>
           </form>
         )}

@@ -1,5 +1,5 @@
-import FavoritesPage from '@/components/FavoritesPage'
-import PageTransition from '@/components/PageTransition'
+import FavoritesPage from '@/components/pages/FavoritesPage'
+import PageTransition from '@/components/ui/PageTransition'
 
 export default function Favoris() {
   return (

@@ -3,7 +3,7 @@ import Image from "next/image";
 import { cookies } from "next/headers";
 import { FileText, Plus, Pencil } from "lucide-react";
 import { createClient } from "@/utils/supabase/server";
-import AppHeader from "@/components/AppHeader";
+import AppHeader from "@/components/ui/AppHeader";
 import { ROUTES } from "@/constants";
 
 function decodeEntities(text: string): string {

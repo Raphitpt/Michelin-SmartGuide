@@ -1703,6 +1703,14 @@ export type Database = {
         Args: { ""?: string; att_name: string; tbl: unknown };
         Returns: string;
       };
+      restaurants_nearby: {
+        Args: {
+          radius_meters?: number;
+          user_lat: number;
+          user_lng: number;
+        };
+        Returns: Database["public"]["Tables"]["restaurants"]["Row"][];
+      };
       _st_3dintersects: {
         Args: { geom1: unknown; geom2: unknown };
         Returns: boolean;
