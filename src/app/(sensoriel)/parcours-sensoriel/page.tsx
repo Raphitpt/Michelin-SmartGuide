@@ -4,6 +4,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { useAuth } from "@/context/AuthContext";
 import { useRouter } from "next/navigation";
+import { createClient } from "@/utils/supabase/client";
 import IntroScreen from "@/components/sensoriel/IntroScreen";
 import SwiperScreen from "@/components/sensoriel/SwiperScreen";
 import ResultScreen from "@/components/sensoriel/ResultScreen";
@@ -66,7 +67,7 @@ const DEFAULT_RESULT: ResultData = {
 type Coords = { lat: number; lng: number };
 
 export default function ParcoursSensorielPage() {
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const router = useRouter();
   const [step, setStep] = useState<Step>("intro");
   const [restaurants, setRestaurants] = useState<RestaurantForSwipe[]>([]);
@@ -77,11 +78,29 @@ export default function ParcoursSensorielPage() {
   const [coords, setCoords] = useState<Coords | null>(null);
   const [hasGeoloc, setHasGeoloc] = useState(false);
   const [isLoadingResult, setIsLoadingResult] = useState(false);
+  const [isLoadingRestaurants, setIsLoadingRestaurants] = useState(true);
 
   useEffect(() => {
     fetchRestaurantsForSwipe().then((data) => {
       const shuffled = [...data].sort(() => Math.random() - 0.5);
-      setRestaurants(shuffled);
+      const selected: typeof data = [];
+      const seenTraits = new Set<string>();
+      for (const r of shuffled) {
+        if (selected.length >= 15) break;
+        const newTraits = r.trait_codes.filter(t => !seenTraits.has(t));
+        if (selected.length === 0 || newTraits.length > 0) {
+          selected.push(r);
+          r.trait_codes.forEach(t => seenTraits.add(t));
+        }
+      }
+      if (selected.length < 15) {
+        for (const r of shuffled) {
+          if (selected.length >= 15) break;
+          if (!selected.includes(r)) selected.push(r);
+        }
+      }
+      setRestaurants(selected);
+      setIsLoadingRestaurants(false);
     });
   }, []);
 
@@ -102,12 +121,20 @@ export default function ParcoursSensorielPage() {
   }, [result?.archetypeId]);
 
   async function handleStart() {
-    if (!user) {
+    let resolvedUser = user;
+
+    if (!resolvedUser) {
+      const supabase = createClient();
+      const { data: { session } } = await supabase.auth.getSession();
+      resolvedUser = session?.user ?? null;
+    }
+
+    if (!resolvedUser) {
       router.push("/login");
       return;
     }
     try {
-      const id = await createSwipeSession(user.id);
+      const id = await createSwipeSession(resolvedUser.id);
       setSessionId(id);
     } catch {
       // session non critique
@@ -238,7 +265,38 @@ export default function ParcoursSensorielPage() {
       </div>
     );
 
-  if (step === "intro") return <IntroScreen onStart={handleStart} />;
+  if (isLoadingRestaurants)
+    return (
+      <div
+        className="min-h-screen flex flex-col items-center justify-center gap-8"
+        style={{ background: 'linear-gradient(160deg, #2a1810 0%, #1C0907 60%, #110503 100%)' }}
+      >
+        <div className="flex flex-col items-center gap-3">
+          <span className="font-bold text-[#ba0b2f] text-lg tracking-widest uppercase">Michelin</span>
+          <span className="font-normal text-white/60 text-sm">SmartGuide</span>
+        </div>
+        <div className="flex flex-col items-center gap-4">
+          <div className="flex gap-1.5">
+            {[0, 1, 2].map((i) => (
+              <div
+                key={i}
+                className="w-2 h-2 rounded-full bg-[#ba0b2f]"
+                style={{ animation: `pulse 1.2s ease-in-out ${i * 0.2}s infinite` }}
+              />
+            ))}
+          </div>
+          <p className="text-white/40 text-[13px] tracking-wide">Préparation de votre sélection…</p>
+        </div>
+        <style>{`
+          @keyframes pulse {
+            0%, 100% { opacity: 0.2; transform: scale(0.8); }
+            50% { opacity: 1; transform: scale(1.2); }
+          }
+        `}</style>
+      </div>
+    );
+
+  if (step === "intro") return <IntroScreen onStart={handleStart} disabled={authLoading} />;
   if (step === "swipe")
     return (
       <SwiperScreen restaurants={restaurants} onComplete={handleComplete} />

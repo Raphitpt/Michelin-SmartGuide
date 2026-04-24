@@ -26,37 +26,32 @@ export type RestaurantForSwipe = {
 export async function fetchRestaurantsForSwipe(): Promise<RestaurantForSwipe[]> {
   const supabase = createClient()
 
-  const { data: traits, error: traitsError } = await supabase
-    .from('restaurant_traits')
-    .select('restaurant_id, trait_code')
+  const { data: rpcRestaurants, error: rpcError } = await supabase
+    .rpc('get_swipe_restaurants', { limit_count: 50 })
 
-  if (traitsError || !traits || traits.length === 0) return []
+  if (rpcError || !rpcRestaurants || rpcRestaurants.length === 0) return []
 
-  const traitsByRestaurant: Record<string, string[]> = {}
-  for (const t of traits) {
-    if (!traitsByRestaurant[t.restaurant_id]) {
-      traitsByRestaurant[t.restaurant_id] = []
-    }
-    traitsByRestaurant[t.restaurant_id].push(t.trait_code)
-  }
+  const restaurantIds = (rpcRestaurants as { id: string }[]).map(r => r.id)
 
-  const restaurantIds = Object.keys(traitsByRestaurant)
-  const uniqueTraitCodes = Array.from(new Set(traits.map(t => t.trait_code)))
-
-  const [{ data: restaurants, error }, { data: recoTraits, error: recoTraitsError }] = await Promise.all([
+  const [{ data: traits }, { data: restaurants, error }, { data: recoTraits, error: recoTraitsError }] = await Promise.all([
+    supabase.from('restaurant_traits').select('restaurant_id, trait_code').in('restaurant_id', restaurantIds),
     supabase
       .from('restaurants')
       .select('id, name, city, main_image, michelin_award_id, michelin_awards(stars, label), price_category_id, price_categories!restaurants_price_category_id_fkey(price_avg_min_eur, price_avg_max_eur), restaurant_images(url, position)')
-      .in('id', restaurantIds)
-      .eq('is_published', true)
-      .limit(15),
-    supabase.from('reco_traits').select('code, label, dimension_id').in('code', uniqueTraitCodes),
+      .in('id', restaurantIds),
+    supabase.from('reco_traits').select('code, label, dimension_id'),
   ])
 
   if (error || !restaurants) return []
 
   if (recoTraitsError) {
     console.error('[fetchRestaurantsForSwipe] failed to load trait labels:', recoTraitsError.message)
+  }
+
+  const traitsByRestaurant: Record<string, string[]> = {}
+  for (const t of traits ?? []) {
+    if (!traitsByRestaurant[t.restaurant_id]) traitsByRestaurant[t.restaurant_id] = []
+    traitsByRestaurant[t.restaurant_id].push(t.trait_code)
   }
 
   const traitByCode = new Map((recoTraits ?? []).map(t => [t.code, t]))

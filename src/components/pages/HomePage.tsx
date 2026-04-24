@@ -46,7 +46,7 @@ export default function HomePage() {
       .select('archetype_id, archetype_score')
       .eq('user_id', user.id)
       .maybeSingle()
-      .then(async ({ data, error }) => {
+      .then(async ({ data }) => {
         if (!data) return
         const { data: arch } = await supabase
           .from('reco_archetypes')

@@ -6,9 +6,10 @@ import { fadeSlideUp, staggerContainer } from '@/lib/motion'
 
 type Props = {
   onStart: () => void
+  disabled?: boolean
 }
 
-export default function IntroScreen({ onStart }: Props) {
+export default function IntroScreen({ onStart, disabled }: Props) {
   return (
     <div className="relative min-h-screen bg-[#191919] flex flex-col overflow-hidden">
       <div className="absolute inset-0 bg-[#2a1810]" />
@@ -44,7 +45,8 @@ export default function IntroScreen({ onStart }: Props) {
         <motion.button
           variants={fadeSlideUp}
           onClick={onStart}
-          className="w-full bg-[#ba0b2f] text-white font-medium text-[16px] h-[52px] rounded-[4px] flex items-center justify-center active:opacity-90 transition-opacity"
+          disabled={disabled}
+          className="w-full bg-[#ba0b2f] text-white font-medium text-[16px] h-[52px] rounded-[4px] flex items-center justify-center active:opacity-90 transition-opacity disabled:opacity-50"
         >
           Commencer le parcours
         </motion.button>
