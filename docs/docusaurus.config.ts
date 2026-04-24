@@ -11,7 +11,7 @@ const config: Config = {
     v4: true,
   },
 
-  url: 'https://michelin-smartguide.example.com',
+  url: 'https://docs-michelin.libellule.app',
   baseUrl: '/',
 
   organizationName: 'michelin',
