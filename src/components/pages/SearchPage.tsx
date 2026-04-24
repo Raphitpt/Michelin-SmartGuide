@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { Search, Sparkles, ArrowDown, Map } from 'lucide-react'
+import { Search, Sparkles, ArrowDown } from 'lucide-react'
 import { motion } from 'framer-motion'
 import Link from 'next/link'
 import { RECHERCHES_POPULAIRES, ROUTES } from '@/constants'
@@ -15,20 +15,26 @@ type Restaurant = Database['public']['Tables']['restaurants']['Row'] & {
   michelin_awards: MichelinAward | null
 }
 
-const CUISINES = [
-  { label: 'Française',  emoji: '🥖', bg: 'bg-[#9B8B5A]' },
-  { label: 'Japonaise',  emoji: '🍱', bg: 'bg-[#8B3A3A]' },
-  { label: 'Italienne',  emoji: '🍅', bg: 'bg-[#3A7A4A]' },
-  { label: 'Fusion',     emoji: '🌍', bg: 'bg-[#3A5A8A]' },
-]
+type RecoTrait = Database['public']['Tables']['reco_traits']['Row']
+
+const TRAIT_COLORS = ['bg-[#9B8B5A]', 'bg-[#8B3A3A]', 'bg-[#3A7A4A]', 'bg-[#3A5A8A]', 'bg-[#5A3A8A]', 'bg-[#8A5A3A]']
 
 export default function SearchPage() {
   const [query, setQuery] = useState('')
+  const [traitFilter, setTraitFilter] = useState<string | null>(null)
+  const [traits, setTraits] = useState<RecoTrait[]>([])
   const [results, setResults] = useState<Restaurant[]>([])
   const [loading, setLoading] = useState(false)
 
   useEffect(() => {
-    if (!query.trim()) {
+    const supabase = createClient()
+    supabase.from('reco_traits').select('*').order('sort_order').limit(8).then(({ data }) => {
+      setTraits(data ?? [])
+    })
+  }, [])
+
+  useEffect(() => {
+    if (!query.trim() && !traitFilter) {
       setResults([])
       return
     }
@@ -36,18 +42,30 @@ export default function SearchPage() {
     const timeout = setTimeout(async () => {
       setLoading(true)
       const supabase = createClient()
-      const { data } = await supabase
-        .from('restaurants')
-        .select('*, michelin_awards(*)')
-        .eq('is_published', true)
-        .ilike('name', `%${query}%`)
-        .limit(20)
-      setResults((data as Restaurant[]) ?? [])
+
+      if (traitFilter) {
+        const { data } = await supabase
+          .from('restaurants')
+          .select('*, michelin_awards(*), restaurant_traits!inner(trait_code)')
+          .eq('is_published', true)
+          .eq('restaurant_traits.trait_code', traitFilter)
+          .limit(20)
+        setResults((data as Restaurant[]) ?? [])
+      } else {
+        const { data } = await supabase
+          .from('restaurants')
+          .select('*, michelin_awards(*)')
+          .eq('is_published', true)
+          .ilike('name', `%${query}%`)
+          .limit(20)
+        setResults((data as Restaurant[]) ?? [])
+      }
+
       setLoading(false)
     }, 300)
 
     return () => clearTimeout(timeout)
-  }, [query])
+  }, [query, traitFilter])
 
   return (
     <div className="flex flex-col pb-28 px-4 pt-6">
@@ -65,12 +83,12 @@ export default function SearchPage() {
         />
       </div>
 
-      {query.trim() ? (
+      {query.trim() || traitFilter ? (
         <section>
           {loading ? (
             <p className="text-michelin-gray text-sm">Recherche en cours…</p>
           ) : results.length === 0 ? (
-            <p className="text-michelin-gray text-sm">Aucun résultat pour « {query} »</p>
+            <p className="text-michelin-gray text-sm">Aucun résultat pour « {traitFilter ? (traits.find(t => t.code === traitFilter)?.label ?? traitFilter) : query} »</p>
           ) : (
             <motion.div
               key={query}
@@ -125,21 +143,22 @@ export default function SearchPage() {
             </div>
           </section>
 
-          <section className="mb-6">
-            <p className="text-michelin-black font-bold text-lg mb-3">Explorer par cuisine</p>
-            <div className="grid grid-cols-2 gap-3">
-              {CUISINES.map((cuisine) => (
-                <button
-                  key={cuisine.label}
-                  onClick={() => setQuery(cuisine.label)}
-                  className={`${cuisine.bg} rounded-xl h-24 flex flex-col justify-end p-3 text-left hover:opacity-90 transition-opacity`}
-                >
-                  <span className="text-xl mb-1">{cuisine.emoji}</span>
-                  <span className="text-white font-semibold text-sm">{cuisine.label}</span>
-                </button>
-              ))}
-            </div>
-          </section>
+          {traits.length > 0 && (
+            <section className="mb-6">
+              <p className="text-michelin-black font-bold text-lg mb-3">Explorer par trait</p>
+              <div className="grid grid-cols-2 gap-3">
+                {traits.map((trait, i) => (
+                  <button
+                    key={trait.code}
+                    onClick={() => { setTraitFilter(trait.code); setQuery('') }}
+                    className={`${TRAIT_COLORS[i % TRAIT_COLORS.length]} rounded-xl h-24 flex flex-col justify-end p-3 text-left hover:opacity-90 transition-opacity`}
+                  >
+                    <span className="text-white font-semibold text-sm">{trait.label}</span>
+                  </button>
+                ))}
+              </div>
+            </section>
+          )}
 
           <button className="flex items-center gap-2 text-michelin-black text-sm font-medium mb-6 self-start">
             <Sparkles size={16} strokeWidth={1.5} />
@@ -149,15 +168,6 @@ export default function SearchPage() {
         </>
       )}
 
-      <div className="fixed bottom-16 left-0 right-0 px-4 pb-3">
-        <Link
-          href={ROUTES.CARTE}
-          className="flex items-center justify-center gap-2 w-full bg-michelin-black text-white text-sm font-medium py-4 rounded-full hover:opacity-90 transition-opacity"
-        >
-          <Map size={16} strokeWidth={1.5} />
-          Voir sur la carte
-        </Link>
-      </div>
 
     </div>
   )
